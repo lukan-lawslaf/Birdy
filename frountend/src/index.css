@@ -1,0 +1,138 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Newsreader", Iowan Old Style, Georgia, serif;
+  --font-sans: "Nunito Sans", Segoe UI, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --color-sage: var(--sage);
+  --color-sage-ink: var(--sage-ink);
+  --color-sage-tint: var(--sage-tint);
+  --color-panel: var(--panel);
+  --color-chip: var(--chip);
+}
+
+:root {
+  /* Day Theme (Natural Linen, Bone Paper & Botanical Sage from birds p.txt) */
+  --bg: #f6f1e7;
+  --panel: #fbf8f1;
+  --line: #e7e0d1;
+  --ink: #1b1a17;
+  --muted: #6d685d;
+  --sage: #4d5a3d;
+  --sage-ink: #ffffff;
+  --sage-tint: #e9ebdc;
+  --chip: #efeadd;
+  --shadow: 60, 48, 28;
+  --ease: cubic-bezier(0.22, 0.8, 0.24, 1);
+}
+
+/* Dusk / Dark Theme (Forest Night, Moss Panel & Lichen Sage from birds p.txt) */
+[data-theme="dusk"],
+html.dark {
+  --bg: #14170f;
+  --panel: #1b1f15;
+  --line: #2d3324;
+  --ink: #f2ecdf;
+  --muted: #a8a392;
+  --sage: #a9b98a;
+  --sage-ink: #14170f;
+  --sage-tint: #283020;
+  --chip: #262b1d;
+  --shadow: 0, 0, 0;
+  --ease: cubic-bezier(0.22, 0.8, 0.24, 1);
+}
+
+html {
+  scroll-behavior: smooth;
+  scrollbar-gutter: stable;
+  background-color: var(--bg);
+  color: var(--ink);
+  transition: background-color 0.6s var(--ease), color 0.6s var(--ease);
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  transition: background-color 0.6s var(--ease), color 0.6s var(--ease);
+}
+
+::selection {
+  background-color: var(--sage);
+  color: var(--sage-ink);
+}
+
+/* Accessible focus ring standard (birds p.txt & UI/UX Pro Max) */
+:focus-visible {
+  outline: 2px solid var(--sage);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Reduced motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Custom organic scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 9999px;
+  border: 2px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--sage);
+}
+
+/* Performance: Content visibility for offscreen catalog lists */
+.content-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 420px;
+}
+
+/* Editorial display typography */
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* Natural soft shadows & specimen elevation */
+.natural-card-shadow {
+  box-shadow: 0 10px 30px -10px rgba(var(--shadow), 0.18), 0 2px 8px -2px rgba(var(--shadow), 0.1);
+}
+
+.natural-card-shadow-hover {
+  box-shadow: 0 20px 45px -15px rgba(var(--shadow), 0.28), 0 4px 12px -3px rgba(var(--shadow), 0.15);
+}
+
+/* Organic specimen spotlight */
+.specimen-spotlight {
+  background: radial-gradient(closest-side, rgba(var(--shadow), 0.22), transparent);
+}
+
+/* Floating dust animation */
+@keyframes float-dust {
+  0% { transform: translateY(0px) rotate(0deg); opacity: 0.3; }
+  50% { transform: translateY(-25px) rotate(180deg); opacity: 0.7; }
+  100% { transform: translateY(0px) rotate(360deg); opacity: 0.3; }
+}
+
+.animate-float-dust {
+  animation: float-dust 14s ease-in-out infinite;
+}

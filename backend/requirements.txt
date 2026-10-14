@@ -1,0 +1,20 @@
+# --- data pipeline -----------------------------------------------------------
+sqlalchemy==2.0.51
+pydantic==2.12.2
+pydantic-settings==2.14.1
+requests==2.34.2
+# reads the image dataset parquet and re-encodes pictures for storage
+pyarrow==26.0.0
+pillow==12.3.0
+
+# --- API ---------------------------------------------------------------------
+fastapi==0.136.0
+uvicorn[standard]==0.44.0
+# async SQLite driver; the ingest pipeline keeps using the sync engine
+aiosqlite==0.22.1
+# multipart parsing, needed by POST /classify/identify
+python-multipart==0.0.20
+
+# --- classifier --------------------------------------------------------------
+onnxruntime==1.27.0
+numpy==2.2.6

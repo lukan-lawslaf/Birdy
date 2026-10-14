@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Database (rebuild with `python -m app.ingest.run`)
+backend/birds.db
+backend/*.db
+
+# Logs
+*.log
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Secrets. The eBird key and the Movebank account live here.
+.env
+
+# Raw data archives are large; the 1.9 GB image dataset lives outside the repo
+# at C:\Users\Nakul\bird-data\ and is referenced from backend/app/config.py.
+data/*.tgz
+data/*.zip

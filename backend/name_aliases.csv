@@ -1,0 +1,125 @@
+dataset_name,resolved_name,confidence,note
+AFRICAN CROWNED CRANE,Gray Crowned-Crane,high,"v2021 spelling is Gray, hyphenated"
+ALBATROSS,Black-browed Albatross,low,generic label - not one species; picked the most-photographed
+ALBERTS TOWHEE,Abert's Towhee,high,misspelled
+ALPINE CHOUGH,Yellow-billed Chough,high,v2021 name for Alpine Chough
+ANTBIRD,Chestnut-backed Antbird,low,"generic label - ""antbird"" is a whole family"
+ASHY THRUSHBIRD,Ashy Thrush,medium,thrushbird is not a real name
+ASIAN DOLLARD BIRD,Dollarbird,high,"renamed; eBird v2021 uses plain ""Dollarbird"""
+ASIAN OPENBILL STORK,Asian Openbill,high,exact
+AUCKLAND SHAQ,Auckland Islands Shag,high,SHAQ misspelled
+AVADAVAT,Red Avadavat,medium,generic label; Red is the common one
+AZURE TANAGER,Azure-shouldered Tanager,high,name truncated
+BALD IBIS,Northern Bald Ibis,high,name truncated
+BALI STARLING,Bali Myna,high,renamed
+BANDED PITA,Javan Banded-Pitta,medium,Banded Pitta was split three ways; picked the nominate form
+BIRD OF PARADISE,Red Bird-of-Paradise,low,generic label - a whole family
+BLACK COCKATO,Yellow-tailed Black Cockatoo,medium,COCKATO truncated; several black cockatoos exist
+BLACK HEADED CAIQUE,Black-headed Parrot,high,renamed; caique is a trade name
+BLACK TAIL CRAKE,Black-tailed Crake,high,name truncated
+BLACK THROATED BUSHTIT,Black-throated Tit,high,v2021 uses Tit not Bushtit
+BLACK THROATED HUET,Black-throated Huet-huet,high,name truncated
+BLACK THROATED WARBLER,Black-throated Green Warbler,medium,ambiguous - Green or Gray
+BLACKBURNIAM WARBLER,Blackburnian Warbler,high,misspelled
+BLONDE CRESTED WOODPECKER,Blond-crested Woodpecker,high,hyphenation
+BLUE COAU,Blue Coua,high,COAU misspelled
+BLUE GROUSE,Sooty Grouse,medium,species was split from Blue Grouse
+BLUE HERON,Great Blue Heron,medium,generic label - Great or Little
+BORNEAN PHEASANT,Bornean Peacock-Pheasant,high,name truncated
+BRANDT CORMARANT,Brandt's Cormorant,high,misspelled and missing apostrophe
+BROWN CREPPER,Brown Creeper,high,CREPPER misspelled
+BROWN NOODY,Brown Noddy,high,NOODY misspelled
+BUSH TURKEY,Australian Brushturkey,high,regional name
+CANARY,Island Canary,high,v2021 name for the wild canary
+CAPE GLOSSY STARLING,Cape Starling,high,renamed
+CARMINE BEE-EATER,Northern Carmine Bee-eater,high,two Carmine bee-eaters exist; Northern is the widespread one
+CASSOWARY,Southern Cassowary,low,generic label - three species exist
+CHARA DE COLLAR,Woodhouse's Scrub-Jay,medium,Spanish-language name; uncertain
+CHESTNET BELLIED EUPHONIA,Chestnut-bellied Euphonia,high,misspelled
+CHUKAR PARTRIDGE,Chukar,high,name truncated
+COCK OF THE  ROCK,Guianan Cock-of-the-rock,low,generic label - two species; note double space in dataset
+COCKATOO,Sulphur-crested Cockatoo,low,generic label - many species
+CRESTED NUTHATCH,,mixed,"class contains mixed nuthatch species (3 Red-breasted, 2 White-breasted); no bird named Crested Nuthatch exists"
+CRESTED WOOD PARTRIDGE,Crested Partridge,high,renamed
+CROW,Carrion Crow,low,generic label - many species
+CURL CRESTED ARACURI,Curl-crested Aracari,high,hyphenation
+DOUBLE BRESTED CORMARANT,Double-crested Cormorant,high,misspelled
+EARED PITA,Eared Pitta,high,PITA misspelled
+EASTERN BLUEBONNET,Greater Bluebonnet,high,renamed
+EASTERN GOLDEN WEAVER,African Golden-Weaver,medium,v2021 has no Eastern Golden-Weaver
+EASTERN TOWEE,Eastern Towhee,high,TOWEE misspelled
+EASTERN WIP POOR WILL,Eastern Whip-poor-will,high,punctuation
+FAIRY BLUEBIRD,Asian Fairy-bluebird,high,hyphenation
+FAIRY PENGUIN,Little Penguin,high,renamed
+FAN TAILED WIDOW,Fan-tailed Widowbird,high,name truncated
+FIRE TAILLED MYZORNIS,Fire-tailed Myzornis,high,misspelled
+FLAME TANAGER,Flame-colored Tanager,medium,"no bird called exactly ""Flame Tanager"""
+FRIGATE,Magnificent Frigatebird,low,generic label - five species
+FRILL BACK PIGEON,Rock Pigeon,medium,domestic Frillback breed of the Rock Pigeon
+GO AWAY BIRD,Gray Go-away-bird,low,generic label - three species
+GOLD WING WARBLER,Golden-winged Warbler,high,misspelled
+GOLDEN CHLOROPHONIA,Golden-browed Chlorophonia,high,name truncated
+GREATOR SAGE GROUSE,Greater Sage-Grouse,high,misspelled
+GREEN MAGPIE,Common Green-Magpie,high,renamed
+GREEN WINGED DOVE,Asian Emerald Dove,medium,aka Green-winged Pigeon
+GROVED BILLED ANI,Groove-billed Ani,high,misspelled
+GUINEAFOWL,Helmeted Guineafowl,low,generic label - several species
+HOOPOES,Eurasian Hoopoe,high,plural used in dataset
+IMPERIAL SHAQ,Antarctic Shag,medium,Imperial Shag was split; picked the Antarctic form
+INDIAN BUSTARD,Great Indian Bustard,high,v2021 prefixes Great
+IWI,Iiwi,high,apostrophe dropped
+JACOBIN PIGEON,Rock Pigeon,medium,domestic Jacobin breed of the Rock Pigeon
+KILLDEAR,Killdeer,high,misspelled
+KIWI,North Island Brown Kiwi,low,generic label - kiwi are five species
+KOOKABURRA,Laughing Kookaburra,high,name truncated
+LILAC ROLLER,Lilac-breasted Roller,high,name truncated
+LOONEY BIRDS,,junk,"class contains human photographs, not birds - corrupt data in the source dataset"
+MALABAR HORNBILL,Malabar Pied-Hornbill,medium,ambiguous - Malabar Pied or Malabar Gray
+MALLARD DUCK,Mallard,high,"DUCK is redundant"""
+MANDRIN DUCK,Mandarin Duck,high,misspelled
+MASKED BOBWHITE,Northern Bobwhite,medium,Masked is a subspecies of Northern Bobwhite
+MYNA,Common Myna,medium,generic label
+ORANGE BRESTED BUNTING,Orange-breasted Bunting,high,misspelled
+OSTRICH,Common Ostrich,high,name truncated
+OYSTER CATCHER,Eurasian Oystercatcher,medium,generic label - many oystercatchers
+PARAKETT  AUKLET,Parakeet Auklet,high,misspelled; dataset has a double space
+PARAKETT AUKLET,Parakeet Auklet,high,misspelled; duplicate of the above with single space
+PARUS MAJOR,Great Tit,high,scientific name used as the label
+PEACOCK,Indian Peafowl,high,regional name
+PUFFIN,Atlantic Puffin,high,name truncated
+PYGMY KINGFISHER,African Pygmy Kingfisher,low,generic label - three species
+QUETZAL,Resplendent Quetzal,high,name truncated
+RED BELLIED PITTA,Blue-breasted Pitta,high,v2021 name for the old Red-bellied Pitta
+RED HEADED DUCK,Redhead,medium,older name for Redhead
+RED TAILED THRUSH,Red-tailed Ant-Thrush,low,uncertain
+RED WISKERED BULBUL,Red-whiskered Bulbul,high,misspelled
+ROADRUNNER,Greater Roadrunner,high,name truncated
+ROSE BREASTED COCKATOO,Galah,high,renamed
+ROUGH LEG BUZZARD,Rough-legged Hawk,high,renamed for the American form
+RUDY KINGFISHER,Ruddy Kingfisher,high,misspelled
+RUFOUS KINGFISHER,Rufous-backed Dwarf-Kingfisher,medium,ambiguous
+RUFOUS TREPE,Rufous Treepie,high,misspelled
+RUFUOS MOTMOT,Rufous Motmot,high,misspelled
+SAMATRAN THRUSH,Sumatran Laughingthrush,high,confirmed by viewing the class images; 3 of 5 are this species
+SAND MARTIN,Bank Swallow,high,v2021 uses the American name
+SCARLET CROWNED FRUIT DOVE,Scarlet-breasted Fruit-Dove,high,v2021 name
+SPLENDID WREN,Splendid Fairywren,medium,fairywren not wren
+SPOON BILED SANDPIPER,Spoon-billed Sandpiper,high,misspelled
+STEAMER DUCK,Flying Steamer-Duck,low,generic label - four species
+STRIPPED MANAKIN,Striolated Manakin,medium,Striped Manakin was split; name is closest
+STRIPPED SWALLOW,Lesser Striped Swallow,medium,ambiguous - Greater or Lesser
+TAILORBIRD,Common Tailorbird,medium,generic label
+TAIWAN MAGPIE,Taiwan Blue-Magpie,high,renamed
+TAKAHE,South Island Takahe,high,name truncated
+TASMANIAN HEN,Tasmanian Nativehen,high,renamed
+TEAL DUCK,Green-winged Teal,medium,"confirmed by viewing; 4 of 5 images are Green-winged Teal, one is a Mallard"
+TIT MOUSE,Tufted Titmouse,high,standard species
+TOUCHAN,Toco Toucan,medium,TOUCHAN misspelled
+TRUMPTER SWAN,Trumpeter Swan,high,misspelled
+TURQUOISE MOTMOT,Turquoise-browed Motmot,high,name truncated
+UMBRELLA BIRD,Long-wattled Umbrellabird,medium,generic label - three species
+VENEZUELIAN TROUPIAL,Venezuelan Troupial,high,misspelled
+VERMILION FLYCATHER,Vermilion Flycatcher,high,misspelled
+WALL CREAPER,Wallcreeper,high,misspelled
+WHITE TAILED TROPIC,White-tailed Tropicbird,high,name truncated
+YELLOW CACIQUE,Yellow-winged Cacique,medium,ambiguous - three yellow caciques
