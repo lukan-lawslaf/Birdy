@@ -3,7 +3,7 @@ services:
     name: birdpedia-api
     runtime: python
     plan: free
-    buildCommand: pip install -r backend/requirements-runtime.txt
+    buildCommand: pip install -r backend/requirements-runtime.txt && python backend/start.py --restore-only
     startCommand: python backend/start.py
     healthCheckPath: /health
     envVars:
@@ -13,6 +13,22 @@ services:
         sync: false
       - key: BIRDS_DB_SHA256
         sync: false
+      - key: BIRDS_SNAPSHOT_ANON_KEY
+        sync: false
+      - key: BIRDS_SNAPSHOT_TOKEN
+        sync: false
+      - key: SQLITE_CACHE_KIB
+        value: "8192"
+      - key: SQLITE_MMAP_BYTES
+        value: "33554432"
+      - key: DATABASE_POOL_SIZE
+        value: "1"
+      - key: DATABASE_MAX_OVERFLOW
+        value: "1"
+      - key: CLASSIFIER_THREADS
+        value: "1"
+      - key: CLASSIFIER_LOW_MEMORY
+        value: "true"
       - key: CORS_ORIGINS
         sync: false
       - key: XENO_CANTO_KEY

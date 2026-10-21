@@ -18,6 +18,10 @@ dist/
 
 # Secrets. The eBird key and the Movebank account live here.
 .env
+.deployment/
+.vercel/
+.env*.local
+.DS_Store
 
 # Raw data archives are large; the 1.9 GB image dataset lives outside the repo
 # at C:\Users\Nakul\bird-data\ and is referenced from backend/app/config.py.

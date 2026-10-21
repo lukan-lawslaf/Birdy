@@ -40,7 +40,11 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # --- async, for the API ------------------------------------------------------
 ASYNC_DATABASE_URL = DATABASE_URL.replace("sqlite:///", "sqlite+aiosqlite:///", 1)
-async_engine = create_async_engine(ASYNC_DATABASE_URL)
+async_engine = create_async_engine(
+    ASYNC_DATABASE_URL,
+    pool_size=settings.database_pool_size,
+    max_overflow=settings.database_max_overflow,
+)
 
 
 @event.listens_for(async_engine.sync_engine, "connect")
@@ -53,8 +57,8 @@ def _tune_sqlite(dbapi_connection, connection_record):
     """
     cursor = dbapi_connection.cursor()
     try:
-        cursor.execute("PRAGMA cache_size = -64000")
-        cursor.execute("PRAGMA mmap_size = 268435456")
+        cursor.execute(f"PRAGMA cache_size = -{max(1, settings.sqlite_cache_kib)}")
+        cursor.execute(f"PRAGMA mmap_size = {max(0, settings.sqlite_mmap_bytes)}")
     finally:
         cursor.close()
 

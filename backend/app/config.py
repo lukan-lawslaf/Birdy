@@ -10,6 +10,12 @@ PROJECT_DIR = BACKEND_DIR.parent
 class Settings(BaseSettings):
     # SQLite lives next to the backend, same layout as the Rayquaza project.
     database_url: str = "sqlite:///./birds.db"
+    sqlite_cache_kib: int = 64000
+    sqlite_mmap_bytes: int = 268435456
+    database_pool_size: int = 5
+    database_max_overflow: int = 10
+    classifier_threads: int = 0
+    classifier_low_memory: bool = False
     cors_origins: str = (
         "http://localhost:3000,http://localhost:5173,http://localhost:5174,"
         "https://*.onrender.com"

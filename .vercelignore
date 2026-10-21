@@ -1,0 +1,8 @@
+.agents/
+.deployment/
+backend/
+data/
+models/
+design/
+supabase/
+skills-lock.json

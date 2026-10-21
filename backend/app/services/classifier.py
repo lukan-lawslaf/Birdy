@@ -38,7 +38,14 @@ def load() -> None:
         return
     path = settings.resolve_path(settings.classifier_model)
     label_path = settings.resolve_path(settings.classifier_labels)
-    _session = ort.InferenceSession(str(path), providers=["CPUExecutionProvider"])
+    options = ort.SessionOptions()
+    if settings.classifier_threads > 0:
+        options.intra_op_num_threads = settings.classifier_threads
+        options.inter_op_num_threads = 1
+    if settings.classifier_low_memory:
+        options.enable_cpu_mem_arena = False
+        options.enable_mem_pattern = False
+    _session = ort.InferenceSession(str(path), sess_options=options, providers=["CPUExecutionProvider"])
     raw = json.loads(label_path.read_text(encoding="utf-8"))
     # The file is {"0": "ABBOTTS BABBLER", ...}; be tolerant of a plain list.
     if isinstance(raw, dict):
