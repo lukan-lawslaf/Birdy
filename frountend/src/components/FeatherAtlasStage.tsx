@@ -1,103 +1,128 @@
+import { BIRD_MODELS, SKETCHFAB_BY_SPECIES } from "../data/birdModels";
+import { BirdAudioButton } from "./BirdAudioButton";
+import { conservationLabel } from "../lib/conservation";
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { useTheme } from "../lib/ThemeContext";
-import { 
-  RotateCw, 
-  RotateCcw, 
-  ZoomIn, 
-  ZoomOut, 
-  Sun, 
-  Moon, 
-  Maximize2, 
-  Minimize2, 
-  Compass, 
-  Ruler, 
-  Gauge, 
-  Utensils, 
-  Globe, 
-  ChevronRight, 
-  Sparkles
+import type { BirdSpecies } from "../data/mockBirds";
+import { applyAudio, applyDetail, fromListItem } from "../lib/adapt";
+import {
+  ApiError,
+  getSpecies,
+  getSpeciesAudio,
+  getTrackedSpecies,
+  listSpecies,
+  type TrackedSpecies,
+} from "../lib/api";
+import { FlywayMap } from "./FlywayMap";
+import { birdAudio } from "../lib/birdAudio";
+import { Link } from "react-router-dom";
+import {
+  RotateCw,
+  RotateCcw,
+  ZoomIn,
+  ZoomOut,
+  Sun,
+  Moon,
+  Maximize2,
+  Minimize2,
+  Compass,
+  Ruler,
+  Layers,
+  Feather,
+  Globe2,
+  ChevronRight,
+  Sparkles,
+  Navigation2,
+  Radio,
+  Activity,
+  Weight,
+  Volume2,
+  Calendar,
+  ShieldCheck,
+  ShieldAlert,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  MapPin
 } from "lucide-react";
 
-interface SpecimenData {
-  id: "kingfisher" | "hoopoe";
-  name: string;
-  latin: string;
-  family: string;
-  tags: string[];
-  description: string;
-  traits: { icon: any; label: string; value: string }[];
-  habitat: string;
-  caption: string;
-  closeUpText: string;
-  lensPosition: string;
-  featuredTitle: string;
-  featuredText: string;
-  imageUrl: string;
-  glbUrl: string;
+function disposeModel(model: THREE.Object3D) {
+  model.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return;
+    object.geometry.dispose();
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    materials.forEach((material) => {
+      Object.values(material).forEach((value) => { if (value instanceof THREE.Texture) value.dispose(); });
+      material.dispose();
+    });
+  });
 }
 
-const SPECIMENS: Record<"kingfisher" | "hoopoe", SpecimenData> = {
-  kingfisher: {
-    id: "kingfisher",
-    name: "Common Kingfisher",
-    latin: "Alcedo atthis",
-    family: "ALCEDINIDAE",
-    tags: ["River bird", "Diver", "Iridescent"],
-    description:
-      "A small, spectacular bird of rivers and lakes, renowned for its dazzling sapphire-copper plumage and astonishing hunting dives. A master of stealth and velocity.",
-    traits: [
-      { icon: Ruler, label: "Length", value: "16–17 cm" },
-      { icon: Gauge, label: "Dive speed", value: "Up to 40 km/h" },
-      { icon: Utensils, label: "Diet", value: "Small fish & aquatic nymphs" },
-      { icon: Globe, label: "Range", value: "Eurasia & North Africa" },
-    ],
-    habitat: "Slow rivers, clean streams, reed-fringed lakes and estuaries.",
+interface SpecimenAsset {
+  id: string;
+  glbUrl?: string;
+  caption: string;
+  featuredTitle: string;
+  featuredText: string;
+  lensPosition: string;
+}
+
+/** Real binomials for the two specimens that ship a WebGL model. */
+const GLB_BY_SPECIES: Record<string, string> = {
+  "Alcedo atthis":
+    "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20261004_073345_12721630-c589-442f-8884-e4a445cd8980.glb",
+  "Upupa epops":
+    "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20261004_073347_06b339a7-70bc-4ecd-9e72-1a4143264da9.glb",
+};
+
+/** Prose that belongs to each filled model; falls back to live API text. */
+const GLB_PROSE: Record<string, { caption: string; featuredTitle: string; featuredText: string; lensPosition: string }> = {
+  "Alcedo atthis": {
     caption: "Blink, and the river keeps its secret.",
-    closeUpText:
-      "An intricate mosaic of structural micro-prisms gives the kingfisher its unmistakable metallic sheen.",
-    lensPosition: "24% 30%",
     featuredTitle: "A flash of river blue.",
     featuredText: "Extraordinary colours. A remarkable predatory life by the water.",
-    imageUrl:
-      "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20261004_073256_f9e3e60d-acdc-4925-b393-c4ce14b28711.png",
-    glbUrl:
-      "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20261004_073345_12721630-c589-442f-8884-e4a445cd8980.glb",
+    lensPosition: "24% 30%",
   },
-  hoopoe: {
-    id: "hoopoe",
-    name: "Eurasian Hoopoe",
-    latin: "Upupa epops",
-    family: "UPUPIDAE",
-    tags: ["Ground forager", "Crested", "Migrant"],
-    description:
-      "Unmistakable in cinnamon, black and white, the hoopoe walks open ground probing for subterranean larvae. It unfurls its magnificent crest into a crown when landing.",
-    traits: [
-      { icon: Ruler, label: "Length", value: "25–29 cm" },
-      { icon: Gauge, label: "Wingspan", value: "44–48 cm" },
-      { icon: Utensils, label: "Diet", value: "Insects, mole crickets & grubs" },
-      { icon: Globe, label: "Range", value: "Europe, Asia & Africa" },
-    ],
-    habitat: "Orchards, vineyards, dry steppe and open savanna grassland.",
+  "Upupa epops": {
     caption: "A crown raised, and the orchard takes notice.",
-    closeUpText:
-      "Every crest feather ends in a jet-black terminal tip, so the raised fan reads like an ornate crown.",
-    lensPosition: "62% 22%",
     featuredTitle: "A crown of cinnamon.",
     featuredText: "Bold bars on broad wings. A hollow resonant call heard before seen.",
-    imageUrl:
-      "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20261004_073256_21ed095c-d038-4ab5-87b7-b44e527ec449.png",
-    glbUrl:
-      "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20261004_073347_06b339a7-70bc-4ecd-9e72-1a4143264da9.glb",
+    lensPosition: "62% 22%",
   },
 };
 
+const assetFor = (bird: BirdSpecies): SpecimenAsset => {
+  const prose = GLB_PROSE[bird.scientificName];
+  return {
+    id: bird.scientificName,
+    glbUrl: GLB_BY_SPECIES[bird.scientificName],
+    caption: prose?.caption ?? `Explore ${bird.name} in three dimensions.`,
+    featuredTitle: prose?.featuredTitle ?? bird.name,
+    featuredText: prose?.featuredText ?? (bird.description || bird.sublabel),
+    lensPosition: prose?.lensPosition ?? "50% 50%",
+  };
+};
+
+type StageMode = "3d" | "flyway";
+type SidebarTab = "morphometrics" | "ecology" | "telemetry" | "conservation";
+
 export const FeatherAtlasStage: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<"kingfisher" | "hoopoe">("kingfisher");
+
+  // Selected specimen
+  const [specimenSearch, setSpecimenSearch] = useState("");
+  const [birds, setBirds] = useState<BirdSpecies[]>([]);
+  const [tracked, setTracked] = useState<TrackedSpecies[]>([]);
+  const [selectedBirdId, setSelectedBirdId] = useState<string>("");
+  const [isCatalogLoading, setIsCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [stageMode, setStageMode] = useState<StageMode>("3d");
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("morphometrics");
+
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [isLensOpen, setIsLensOpen] = useState(false);
   const [isLoadingModel, setIsLoadingModel] = useState(true);
@@ -123,17 +148,108 @@ export const FeatherAtlasStage: React.FC = () => {
     rotVelY?: number;
   }>({});
 
-  const currentSpecimen = SPECIMENS[activeTab];
+  const currentBird: BirdSpecies | null =
+    birds.find((b) => b.id === selectedBirdId) || birds[0] || null;
 
-  // Initialize Three.js scene
+  const currentEmbed = SKETCHFAB_BY_SPECIES.get(currentBird?.scientificName ?? "");
+  const visibleBirds = birds.filter((bird) => `${bird.name} ${bird.scientificName} ${bird.order}`.toLowerCase().includes(specimenSearch.toLowerCase()));
+
+  const currentAsset: SpecimenAsset = currentBird
+    ? assetFor(currentBird)
+    : {
+        id: "",
+        caption: "Awaiting the catalogue.",
+        featuredTitle: "Feather Atlas",
+        featuredText: "Connect to the species API to hold a specimen here.",
+        lensPosition: "50% 50%",
+      };
+
+  const isVulnerable = Boolean(
+    currentBird &&
+      (currentBird.conservation?.threatened ||
+        currentBird.iucnCategory === "VU" ||
+        currentBird.iucnCategory === "EN" || currentBird.iucnCategory === "CR")
+  );
+
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  // 0a. Fill the specimen rail from the catalogue
   useEffect(() => {
-    if (!canvasRef.current || !containerRef.current) return;
+    let cancelled = false;
+    setIsCatalogLoading(true);
+
+    const names = [...Object.keys(GLB_BY_SPECIES), ...BIRD_MODELS.map((model) => model.scientificName)];
+    Promise.all([
+      listSpecies({ names: names.join(","), page_size: 100, sort: "taxonomic" }),
+      getTrackedSpecies().catch(() => [] as TrackedSpecies[]),
+    ])
+      .then(([page, telemetry]) => {
+        if (cancelled) return;
+        const next = page.items.map(fromListItem).sort((a, b) => {
+          const aLocal = a.scientificName in GLB_BY_SPECIES;
+          const bLocal = b.scientificName in GLB_BY_SPECIES;
+          return Number(bLocal) - Number(aLocal) || a.order.localeCompare(b.order) || a.name.localeCompare(b.name);
+        });
+        setBirds(next);
+        setTracked(telemetry);
+        setSelectedBirdId((prev) =>
+          prev && next.some((b) => b.id === prev) ? prev : next[0]?.id ?? ""
+        );
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setCatalogError(
+          err instanceof ApiError ? err.message : "Could not reach the specimen catalogue."
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setIsCatalogLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => () => birdAudio.stop(), [selectedBirdId]);
+
+  // 0b. Fold the full record (traits, conservation, prose, audio) into the rail entry
+  useEffect(() => {
+    if (!selectedBirdId) return;
+    let cancelled = false;
+    const name = selectedBirdId;
+
+    getSpecies(name)
+      .then((detail) => {
+        if (cancelled) return;
+        setBirds((prev) =>
+          prev.map((b) => (b.id === name ? applyDetail(b, detail) : b))
+        );
+        return getSpeciesAudio(name, 1).catch(() => null);
+      })
+      .then((audio) => {
+        if (cancelled || !audio) return;
+        setBirds((prev) =>
+          prev.map((b) => (b.id === name ? applyAudio(b, audio) : b))
+        );
+      })
+      .catch(() => {
+        /* the list-derived entry already renders; detail is an enhancement */
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedBirdId]);
+
+  // 1. Initialize Three.js scene
+  useEffect(() => {
+    if (!canvasRef.current || !containerRef.current || stageMode !== "3d" || currentEmbed) return;
 
     const canvas = canvasRef.current;
     const width = canvas.clientWidth || 800;
     const height = canvas.clientHeight || 600;
 
-    // Renderer
     const renderer = new THREE.WebGLRenderer({
       canvas,
       alpha: true,
@@ -146,29 +262,24 @@ export const FeatherAtlasStage: React.FC = () => {
     renderer.toneMappingExposure = 1.05;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
 
-    // Scene & PMREM environment
     const scene = new THREE.Scene();
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
     pmremGenerator.compileEquirectangularShader();
-    const roomEnv = new RoomEnvironment();
-    const envRenderTarget = pmremGenerator.fromScene(roomEnv, 0.04);
+    const envRenderTarget = pmremGenerator.fromScene(new RoomEnvironment(), 0.04);
     scene.environment = envRenderTarget.texture;
 
-    // Camera
-    const camera = new THREE.PerspectiveCamera(26, width / height, 0.1, 100);
-    camera.position.set(0, 0, 5.2);
+    const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 50);
+    camera.position.set(0, 0.2, 3.2);
 
-    // Rig Groups
     const modelPivot = new THREE.Group();
     scene.add(modelPivot);
 
-    // Directional Lights
     const keyLight = new THREE.DirectionalLight(0xfff4e2, 1.6);
-    keyLight.position.set(2.5, 4, 5);
+    keyLight.position.set(3, 4, 3);
     scene.add(keyLight);
 
     const rimLight = new THREE.DirectionalLight(0xbfd8ff, 0.5);
-    rimLight.position.set(-4, 2, -3);
+    rimLight.position.set(-3, -2, -2);
     scene.add(rimLight);
 
     threeState.current = {
@@ -185,44 +296,29 @@ export const FeatherAtlasStage: React.FC = () => {
     };
 
     let animationFrameId: number;
-    const clock = new THREE.Clock();
-
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
-      const dt = clock.getDelta();
-      const t = clock.getElapsedTime();
 
-      if (threeState.current.modelPivot) {
-        // Idle sway
-        if (!threeState.current.isDragging) {
-          threeState.current.modelPivot.position.y = Math.sin(t * 1.3) * 0.025;
+      if (threeState.current.yawQueue !== undefined && Math.abs(threeState.current.yawQueue) > 0.001) {
+        const step = threeState.current.yawQueue * 0.12;
+        modelPivot.rotation.y += step;
+        threeState.current.yawQueue -= step;
+      }
+
+      if (!threeState.current.isDragging) {
+        if (threeState.current.rotVelX) {
+          modelPivot.rotation.x += threeState.current.rotVelX;
+          threeState.current.rotVelX *= 0.92;
         }
-
-        // Process queued rotations from turn pill
-        if (threeState.current.yawQueue && Math.abs(threeState.current.yawQueue) > 0.001) {
-          const step = threeState.current.yawQueue * (1 - Math.exp(-dt * 4.2));
-          threeState.current.modelPivot.rotation.y += step;
-          threeState.current.yawQueue -= step;
-        }
-
-        // Apply inertial rotation decay
-        if (!threeState.current.isDragging) {
-          if (threeState.current.rotVelY && Math.abs(threeState.current.rotVelY) > 0.0001) {
-            threeState.current.modelPivot.rotation.y += threeState.current.rotVelY;
-            threeState.current.rotVelY *= Math.exp(-dt * 4.5);
-          }
-          if (threeState.current.rotVelX && Math.abs(threeState.current.rotVelX) > 0.0001) {
-            threeState.current.modelPivot.rotation.x += threeState.current.rotVelX;
-            threeState.current.rotVelX *= Math.exp(-dt * 4.5);
-          }
+        if (threeState.current.rotVelY) {
+          modelPivot.rotation.y += threeState.current.rotVelY;
+          threeState.current.rotVelY *= 0.92;
         }
       }
 
-      // Smooth camera zoom
-      if (camera && threeState.current.targetZoom) {
-        const currentZ = camera.position.z;
-        const targetZ = 5.2 / threeState.current.targetZoom;
-        camera.position.z += (targetZ - currentZ) * (1 - Math.exp(-dt * 6));
+      if (threeState.current.targetZoom !== undefined) {
+        const targetZ = 3.2 / threeState.current.targetZoom;
+        camera.position.z += (targetZ - camera.position.z) * 0.1;
       }
 
       renderer.render(scene, camera);
@@ -234,26 +330,31 @@ export const FeatherAtlasStage: React.FC = () => {
       if (!canvas || !renderer || !camera) return;
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
+      if (!w || !h) return;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h, false);
     };
 
-    window.addEventListener("resize", handleResize);
+    const resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(canvas);
 
     return () => {
       cancelAnimationFrame(animationFrameId);
-      window.removeEventListener("resize", handleResize);
+      resizeObserver.disconnect();
       envRenderTarget.dispose();
       pmremGenerator.dispose();
+      if (threeState.current.currentModel) disposeModel(threeState.current.currentModel);
       renderer.dispose();
+      threeState.current = {};
     };
-  }, []);
+  }, [isCatalogLoading, stageMode, Boolean(currentEmbed)]);
 
-  // Load GLB specimen whenever activeTab changes
+  // 2. Load 3D GLB or switch specimen
   useEffect(() => {
     const pivot = threeState.current.modelPivot;
-    if (!pivot) return;
+    if (!pivot || currentEmbed || stageMode !== "3d") return;
+    let cancelled = false;
 
     setIsLoadingModel(true);
     setLoadError(false);
@@ -263,25 +364,30 @@ export const FeatherAtlasStage: React.FC = () => {
       threeState.current.currentModel = undefined;
     }
 
+    if (!currentAsset.glbUrl) {
+      // Graceful fallback for species with orthographic plates
+      setIsLoadingModel(false);
+      setLoadError(true);
+      return;
+    }
+
     const loader = new GLTFLoader();
     const dracoLoader = new DRACOLoader();
     dracoLoader.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.7/");
     loader.setDRACOLoader(dracoLoader);
 
-    const spec = SPECIMENS[activeTab];
-
     loader.load(
-      spec.glbUrl,
+      currentAsset.glbUrl,
       (gltf) => {
         const model = gltf.scene;
-
+        if (cancelled) { disposeModel(model); return; }
         const bbox = new THREE.Box3().setFromObject(model);
         const sphere = new THREE.Sphere();
         bbox.getBoundingSphere(sphere);
 
-        model.position.sub(sphere.center);
         const scale = 1.3 / (sphere.radius || 1);
         model.scale.setScalar(scale);
+        model.position.copy(sphere.center).multiplyScalar(-scale);
 
         pivot.rotation.set(0.12, 0.75, 0, "YXZ");
         pivot.add(model);
@@ -290,18 +396,25 @@ export const FeatherAtlasStage: React.FC = () => {
       },
       undefined,
       (err) => {
-        console.warn("GLB load failed, falling back to 2D cutout:", err);
+        if (cancelled) return;
+        console.warn("GLB load fallback:", err);
         setLoadError(true);
         setIsLoadingModel(false);
       }
     );
 
     return () => {
+      cancelled = true;
+      if (threeState.current.currentModel) {
+        pivot.remove(threeState.current.currentModel);
+        disposeModel(threeState.current.currentModel);
+        threeState.current.currentModel = undefined;
+      }
       dracoLoader.dispose();
     };
-  }, [activeTab]);
+  }, [selectedBirdId, currentAsset.glbUrl, stageMode, Boolean(currentEmbed), isCatalogLoading]);
 
-  // Handle Day/Dusk Lighting switch
+  // 3. Day/Dusk Lighting switch
   useEffect(() => {
     const key = threeState.current.keyLight;
     const rim = threeState.current.rimLight;
@@ -322,9 +435,9 @@ export const FeatherAtlasStage: React.FC = () => {
       rim.intensity = 0.5;
       renderer.toneMappingExposure = 1.05;
     }
-  }, [theme]);
+  }, [theme, stageMode, Boolean(currentEmbed), isCatalogLoading]);
 
-  // Pointer drag controls for 3D stage
+  // Interaction handlers
   const handlePointerDown = (e: React.PointerEvent) => {
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     threeState.current.isDragging = true;
@@ -361,8 +474,9 @@ export const FeatherAtlasStage: React.FC = () => {
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.15 : 0.88;
-    const nextZoom = Math.min(Math.max((threeState.current.targetZoom || 1) * factor, 0.6), 3.2);
+    const currentZoom = threeState.current.targetZoom || 1;
+    const factor = e.deltaY < 0 ? 1.12 : 0.88;
+    const nextZoom = Math.min(Math.max(currentZoom * factor, 0.6), 3.2);
     threeState.current.targetZoom = nextZoom;
     setZoomLevel(nextZoom);
   };
@@ -377,64 +491,133 @@ export const FeatherAtlasStage: React.FC = () => {
       threeState.current.modelPivot.rotation.set(0.12, 0.75, 0, "YXZ");
     }
     threeState.current.targetZoom = 1;
-    threeState.current.yawQueue = 0;
     setZoomLevel(1);
+    setIsLensOpen(false);
   };
 
   const toggleLens = () => {
-    const nextState = !isLensOpen;
-    setIsLensOpen(nextState);
-    const targetZ = nextState ? 2.5 : 1.0;
-    threeState.current.targetZoom = targetZ;
-    setZoomLevel(targetZ);
+    if (isLensOpen) {
+      threeState.current.targetZoom = 1;
+      setZoomLevel(1);
+      setIsLensOpen(false);
+    } else {
+      threeState.current.targetZoom = 2.4;
+      setZoomLevel(2.4);
+      setIsLensOpen(true);
+    }
   };
 
+
+  if (isCatalogLoading) {
+    return (
+      <div className="w-full h-[calc(100vh-65px)] min-h-[560px] flex flex-col items-center justify-center gap-3 bg-[var(--bg)] text-[var(--muted)]">
+        <div className="w-10 h-10 border-2 border-[var(--line)] border-t-[var(--sage)] rounded-full animate-spin" />
+        <span className="text-xs font-mono">Opening the specimen cabinet…</span>
+      </div>
+    );
+  }
+
+  if (catalogError || !currentBird) {
+    return (
+      <div className="w-full h-[calc(100vh-65px)] min-h-[560px] flex flex-col items-center justify-center gap-3 bg-[var(--bg)] text-center px-6">
+        <Feather className="w-6 h-6 text-[var(--sage)]" />
+        <p className="text-sm font-semibold font-display text-[var(--ink)]">
+          {catalogError ?? "The catalogue came back empty."}
+        </p>
+        <p className="text-xs text-[var(--muted)] max-w-md">
+          Start the API with <code className="font-mono">uvicorn app.main:app --reload</code>, then
+          reload this page.
+        </p>
+      </div>
+    );
+  }
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-[calc(100vh-65px)] min-h-[640px] flex flex-col lg:flex-row overflow-hidden transition-colors duration-600 select-none bg-[var(--bg)] text-[var(--ink)]"
+      className="relative w-full h-auto lg:h-[calc(100dvh-80px)] min-h-[560px] flex flex-col lg:flex-row overflow-hidden bg-[var(--bg)] text-[var(--ink)] select-none transition-colors duration-600"
     >
-      {/* 1. Left Sidebar Navigation (Desktop) */}
+      {/* 1. Left Specimen Rail */}
       <aside
-        className={`w-full lg:w-64 xl:w-72 p-5 border-r border-[var(--line)] bg-[var(--bg)] flex-col justify-between hidden lg:flex shrink-0 transition-transform duration-500 ${
-          isFocusMode ? "-translate-x-full opacity-0 pointer-events-none" : "translate-x-0 opacity-100"
+        className={`w-full lg:w-72 xl:w-80 max-h-[240px] lg:max-h-none lg:h-full p-4 lg:p-6 border-b lg:border-b-0 lg:border-r border-[var(--line)] bg-[var(--panel)] flex flex-col justify-between shrink-0 overflow-y-auto transition-transform duration-500 z-20 ${
+          isFocusMode ? "!hidden" : ""
         }`}
       >
         <div>
-          <div className="flex items-center gap-2 mb-6">
-            <Sparkles className="w-4 h-4 text-[var(--sage)]" />
-            <h2 className="text-base font-bold tracking-tight text-[var(--ink)] font-display">
-              Feather Atlas
-            </h2>
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[var(--sage)]" />
+              <h2 className="text-base font-bold tracking-tight text-[var(--ink)] font-display">
+                Feather Atlas
+              </h2>
+            </div>
+            <Link
+              to="/flyways"
+              className="text-[10.5px] font-mono text-[var(--sage)] hover:underline flex items-center gap-1"
+            >
+              <span>Map Archive</span>
+              <ChevronRight className="w-3 h-3" />
+            </Link>
           </div>
 
           <div className="space-y-1">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--muted)] px-2 block mb-2">
-              Select 3D Specimen
+            <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--muted)] px-2 block mb-2 font-bold">
+              Select Avian Specimen
             </span>
-            {(["kingfisher", "hoopoe"] as const).map((key) => {
-              const spec = SPECIMENS[key];
-              const active = activeTab === key;
+
+            <input type="search" aria-label="Find a 3D bird" placeholder={`Find a bird (${birds.length} models)`}
+              value={specimenSearch} onChange={(event) => setSpecimenSearch(event.target.value)}
+              className="w-full px-3 py-2 mb-3 rounded-lg bg-[var(--bg)] text-xs border border-[var(--line)]" />
+            {visibleBirds.length === 0 && <p className="p-2 text-xs text-[var(--muted)]">No matching specimens.</p>}
+            {visibleBirds.map((bird) => {
+              const active = selectedBirdId === bird.id;
               return (
                 <button
-                  key={key}
-                  onClick={() => setActiveTab(key)}
-                  className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer ${
+                  key={bird.id}
+                  onClick={() => setSelectedBirdId(bird.id)}
+                  aria-pressed={active}
+                  className={`w-full flex items-center justify-between p-2.5 rounded-xl transition-all cursor-pointer ${
                     active
                       ? "bg-[var(--sage-tint)] border border-[var(--sage)]/40 text-[var(--ink)] shadow-sm font-semibold"
-                      : "text-[var(--muted)] hover:bg-[var(--panel)] hover:text-[var(--ink)] border border-transparent"
+                      : "text-[var(--muted)] hover:bg-[var(--chip)] hover:text-[var(--ink)] border border-transparent"
                   }`}
                 >
-                  <img
-                    src={spec.imageUrl}
-                    alt={spec.name}
-                    className="w-12 h-10 object-contain drop-shadow"
-                  />
-                  <div className="text-left">
-                    <div className="text-xs font-bold text-[var(--ink)]">{spec.name}</div>
-                    <div className="text-[11px] text-[var(--sage)] italic font-display">
-                      {spec.latin}
+                  <div className="flex items-center gap-2.5">
+                    {bird.imageUrl ? (
+                      <img
+                        src={SKETCHFAB_BY_SPECIES.get(bird.scientificName)?.thumbnailUrl ?? bird.imageUrl}
+                        loading="lazy"
+                        alt={bird.name}
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                        className="w-10 h-10 object-contain drop-shadow bg-[var(--bg)] p-1 rounded-lg border border-[var(--line)]"
+                      />
+                    ) : (
+                      <span className="w-10 h-10 flex items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--bg)]">
+                        <Feather className="w-4 h-4 text-[var(--muted)]" />
+                      </span>
+                    )}
+                    <div className="text-left">
+                      <div className="text-xs font-bold text-[var(--ink)] truncate max-w-[130px]">
+                        {bird.name}
+                      </div>
+                      <div className="text-[10.5px] text-[var(--sage)] italic font-display truncate max-w-[130px]">
+                        {bird.scientificName}
+                      </div>
                     </div>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    {(GLB_BY_SPECIES[bird.scientificName] || SKETCHFAB_BY_SPECIES.has(bird.scientificName)) && (
+                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-[var(--sage-tint)] text-[var(--sage)] border border-[var(--sage)]/30">
+                        3D
+                      </span>
+                    )}
+                    {bird.telemetry?.hasTracking && (
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[var(--chip)] text-[var(--muted)] border border-[var(--line)]">
+                        GPS
+                      </span>
+                    )}
                   </div>
                 </button>
               );
@@ -442,254 +625,521 @@ export const FeatherAtlasStage: React.FC = () => {
           </div>
         </div>
 
-        {/* Featured Specimen Card pinned at bottom */}
-        <div className="p-4 rounded-2xl bg-[var(--panel)] border border-[var(--line)] text-left shadow-sm">
+        {/* Featured Specimen Card */}
+        <div className="hidden lg:block p-4 rounded-2xl bg-[var(--bg)] border border-[var(--line)] text-left shadow-sm mt-4">
           <span className="text-[9px] font-mono tracking-widest uppercase text-[var(--sage)] font-bold block mb-1">
-            FEATURED SPECIMEN
+            ACTIVE ANATOMICAL PROFILE
           </span>
           <h4 className="text-sm font-bold text-[var(--ink)] font-display mb-1">
-            {currentSpecimen.featuredTitle}
+            {currentAsset.featuredTitle}
           </h4>
-          <p className="text-xs text-[var(--muted)] leading-relaxed mb-3">
-            {currentSpecimen.featuredText}
+          <p className="text-xs text-[var(--muted)] leading-relaxed mb-3 line-clamp-2">
+            {currentAsset.featuredText}
           </p>
-          <div className="flex items-center gap-1.5 text-xs text-[var(--sage)] font-semibold">
-            <span>Rotatable 3D Asset</span>
-            <ChevronRight className="w-3.5 h-3.5" />
+          <div className="flex items-center justify-between text-xs text-[var(--sage)] font-semibold">
+            <button
+              onClick={() => setStageMode(stageMode === "3d" ? "flyway" : "3d")}
+              className="hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <span>{stageMode === "3d" ? "Switch to Flyway Map" : "Switch to 3D Anatomy"}</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       </aside>
 
-      {/* 2. Centre 3D WebGL Stage */}
-      <section className="relative flex-1 h-full flex flex-col justify-between overflow-hidden bg-[var(--bg)]">
-        {/* Top specimen tabs (Mobile & Tablet) */}
-        <div className="lg:hidden flex items-center justify-center gap-2 p-3 z-20">
-          {(["kingfisher", "hoopoe"] as const).map((key) => (
-            <button
-              key={key}
-              onClick={() => setActiveTab(key)}
-              className={`px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
-                activeTab === key
-                  ? "bg-[var(--sage)] text-[var(--sage-ink)] shadow-sm"
-                  : "bg-[var(--panel)] text-[var(--muted)] border border-[var(--line)]"
-              }`}
-            >
-              <span>{SPECIMENS[key].name}</span>
-            </button>
-          ))}
+      {/* 2. Centre Visual Stage: 3D WebGL Model vs Interactive Leaflet Flyway Map */}
+      <section className="relative flex-1 h-[520px] lg:h-full min-h-[520px] lg:min-h-0 shrink-0 flex flex-col justify-between overflow-hidden bg-[var(--bg)]">
+        {/* Top Stage Mode Switcher (The game changer requested by the user!) */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 flex items-center p-1.5 rounded-full liquid-glass-capsule liquid-bevel shadow-2xl">
+          <button
+            onClick={() => setStageMode("3d")}
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+              stageMode === "3d"
+                ? "bg-[var(--sage)] text-[var(--sage-ink)] shadow-md"
+                : "text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--chip)]/60"
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>3D specimen</span>
+          </button>
+
+          <button
+            onClick={() => setStageMode("flyway")}
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+              stageMode === "flyway"
+                ? "bg-[var(--sage)] text-[var(--sage-ink)] shadow-md"
+                : "text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--chip)]/60"
+            }`}
+          >
+            <Navigation2 className="w-3.5 h-3.5" />
+            <span>Migration map</span>
+          </button>
         </div>
 
-        {/* 3D Canvas */}
-        <div
-          className="relative w-full h-full flex items-center justify-center cursor-grab active:cursor-grabbing touch-none"
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onWheel={handleWheel}
-          onDoubleClick={resetStage}
-        >
-          <canvas ref={canvasRef} className="absolute inset-0 w-full h-full z-0" />
-
-          {/* Ground shadow beneath the 3D model */}
-          <div className="absolute bottom-[15%] w-72 h-8 rounded-full bg-[rgba(var(--shadow),0.18)] blur-xl pointer-events-none" />
-
-          {/* Fallback or Loading overlay */}
-          {isLoadingModel && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-[var(--bg)]/60 backdrop-blur-sm pointer-events-none">
-              <div className="w-10 h-10 border-2 border-[var(--line)] border-t-[var(--sage)] rounded-full animate-spin mb-3" />
-              <span className="text-xs font-semibold text-[var(--muted)]">Preparing the specimen…</span>
-            </div>
-          )}
-
-          {loadError && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none p-6 text-center">
-              <img
-                src={currentSpecimen.imageUrl}
-                alt={currentSpecimen.name}
-                className="max-h-64 object-contain drop-shadow-[0_20px_40px_rgba(var(--shadow),0.5)] mb-4 animate-pulse-subtle"
-              />
-              <span className="text-xs text-[var(--muted)] bg-[var(--panel)] px-3 py-1.5 rounded-full border border-[var(--line)]">
-                Offline High-Res Orthographic Plate (Drag to examine)
-              </span>
-            </div>
-          )}
-
-          {/* Left Vertical Icon Rail */}
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-20">
-            <button
-              onClick={() => {
-                const z = Math.min((threeState.current.targetZoom || 1) * 1.35, 3.2);
-                threeState.current.targetZoom = z;
-                setZoomLevel(z);
-              }}
-              className="p-2.5 rounded-full bg-[var(--panel)] hover:bg-[var(--chip)] text-[var(--muted)] hover:text-[var(--ink)] border border-[var(--line)] hover:border-[var(--sage)] shadow-sm transition-colors cursor-pointer"
-              title="Zoom In"
-              aria-label="Zoom In"
-            >
-              <ZoomIn className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => {
-                const z = Math.max((threeState.current.targetZoom || 1) / 1.35, 0.6);
-                threeState.current.targetZoom = z;
-                setZoomLevel(z);
-              }}
-              className="p-2.5 rounded-full bg-[var(--panel)] hover:bg-[var(--chip)] text-[var(--muted)] hover:text-[var(--ink)] border border-[var(--line)] hover:border-[var(--sage)] shadow-sm transition-colors cursor-pointer"
-              title="Zoom Out"
-              aria-label="Zoom Out"
-            >
-              <ZoomOut className="w-4 h-4" />
-            </button>
-            <button
-              onClick={toggleTheme}
-              className={`p-2.5 rounded-full border shadow-sm transition-all cursor-pointer ${
-                theme === "dusk"
-                  ? "bg-[var(--sage-tint)] text-[var(--sage)] border-[var(--sage)]/40"
-                  : "bg-[var(--panel)] text-[var(--muted)] hover:text-[var(--ink)] border-[var(--line)]"
-              }`}
-              title="Toggle Day/Dusk Lighting"
-              aria-label="Toggle Lighting"
-            >
-              {theme === "dusk" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-            </button>
-            <button
-              onClick={() => setIsFocusMode(!isFocusMode)}
-              className="p-2.5 rounded-full bg-[var(--panel)] hover:bg-[var(--chip)] text-[var(--muted)] hover:text-[var(--ink)] border border-[var(--line)] hover:border-[var(--sage)] shadow-sm transition-colors cursor-pointer"
-              title="Focus Mode"
-              aria-label="Toggle Focus Mode"
-            >
-              {isFocusMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-            </button>
+        {/* View 1: 3D WebGL Canvas */}
+        {stageMode === "3d" && currentEmbed ? (
+          <div className="relative w-full h-full min-h-[430px] flex flex-col pt-20 pb-4 px-3 sm:px-5">
+            <iframe key={currentEmbed.uid}
+              src={`${currentEmbed.embedUrl}?autostart=1&max_texture_size=1024&ui_theme=${theme === "dusk" ? "dark" : "light"}&dnt=1`}
+              title={`3D specimen: ${currentBird.name} by ${currentEmbed.author}`}
+              allow="autoplay; fullscreen; xr-spatial-tracking" allowFullScreen
+              className="w-full flex-1 min-h-[330px] rounded-xl border-0" />
+            <p className="text-[11px] text-[var(--muted)] leading-relaxed pt-3">
+              <a href={currentEmbed.sourceUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2">{currentEmbed.title}</a>
+              {" by "}{currentEmbed.author}{" · "}
+              <a href={currentEmbed.licenseUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2">{currentEmbed.license}</a>
+              {" · Museum specimen via Sketchfab. Drag to rotate; scroll to zoom."}
+            </p>
           </div>
+        ) : stageMode === "3d" ? (
+          <div
+            className="relative w-full h-full flex items-center justify-center cursor-grab active:cursor-grabbing touch-none"
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onWheel={handleWheel}
+            onDoubleClick={resetStage}
+          >
+            <canvas ref={canvasRef} className="absolute inset-0 w-full h-full z-0" />
 
-          {/* Turn Pill (Bottom Center) */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-1.5 rounded-full bg-[var(--panel)] border border-[var(--line)] shadow-lg backdrop-blur-md z-20">
-            <button
-              onClick={() => triggerYaw(-90)}
-              className="p-2 rounded-full hover:bg-[var(--chip)] text-[var(--muted)] hover:text-[var(--ink)] transition-colors cursor-pointer"
-              title="Rotate Counter-Clockwise 90°"
-              aria-label="Rotate -90 deg"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => triggerYaw(360)}
-              className="px-3 py-1 text-xs font-mono font-bold text-[var(--sage)] hover:bg-[var(--sage-tint)] rounded-full transition-colors cursor-pointer"
-              title="Perform Full 360° Inspection"
-            >
-              360°
-            </button>
-            <button
-              onClick={() => triggerYaw(90)}
-              className="p-2 rounded-full hover:bg-[var(--chip)] text-[var(--muted)] hover:text-[var(--ink)] transition-colors cursor-pointer"
-              title="Rotate Clockwise 90°"
-              aria-label="Rotate +90 deg"
-            >
-              <RotateCw className="w-3.5 h-3.5" />
-            </button>
+            {/* Ground shadow beneath the 3D model */}
+            <div className="absolute bottom-[15%] w-72 h-8 rounded-full bg-[rgba(var(--shadow),0.18)] blur-xl pointer-events-none" />
+
+            {/* Loading or Orthographic fallback */}
+            {isLoadingModel && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-[var(--bg)]/60 backdrop-blur-sm pointer-events-none">
+                <div className="w-10 h-10 border-2 border-[var(--line)] border-t-[var(--sage)] rounded-full animate-spin mb-3" />
+                <span className="text-xs font-semibold text-[var(--muted)]">Preparing the specimen…</span>
+              </div>
+            )}
+
+            {loadError && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none p-6 text-center">
+                <img
+                  src={currentBird.imageUrl}
+                  alt={currentBird.name}
+                  className="max-h-64 object-contain drop-shadow-[0_20px_40px_rgba(var(--shadow),0.5)] mb-4 animate-pulse-subtle"
+                />
+                <span className="text-xs text-[var(--muted)] liquid-glass-capsule px-3 py-1.5 rounded-full border border-[rgba(var(--line-rgb),0.7)] shadow-sm">
+                  Specimen image · 3D model unavailable
+                </span>
+              </div>
+            )}
+
+            {/* Left Vertical Icon Rail for 3D Camera & Light Controls */}
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-20">
+              <button
+                onClick={() => {
+                  const z = Math.min((threeState.current.targetZoom || 1) * 1.35, 3.2);
+                  threeState.current.targetZoom = z;
+                  setZoomLevel(z);
+                }}
+                className="p-2.5 rounded-full liquid-glass-capsule text-[var(--muted)] hover:text-[var(--ink)] hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-md"
+                title="Zoom In"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => {
+                  const z = Math.max((threeState.current.targetZoom || 1) / 1.35, 0.6);
+                  threeState.current.targetZoom = z;
+                  setZoomLevel(z);
+                }}
+                className="p-2.5 rounded-full liquid-glass-capsule text-[var(--muted)] hover:text-[var(--ink)] hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-md"
+                title="Zoom Out"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={toggleTheme}
+                className={`p-2.5 rounded-full liquid-glass-capsule hover:scale-105 active:scale-95 shadow-md transition-all cursor-pointer ${
+                  theme === "dusk"
+                    ? "text-[var(--sage)] border-[var(--sage)]/40"
+                    : "text-[var(--muted)] hover:text-[var(--ink)]"
+                }`}
+                title="Toggle Day/Dusk Lighting"
+              >
+                {theme === "dusk" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+              </button>
+
+              <button
+                onClick={() => setIsFocusMode(!isFocusMode)}
+                className="p-2.5 rounded-full liquid-glass-capsule text-[var(--muted)] hover:text-[var(--ink)] hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-md"
+                title="Focus Mode"
+              >
+                {isFocusMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              </button>
+            </div>
+
+            {/* Turn Pill (Bottom Center) - Liquid Glass Capsule */}
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-1.5 rounded-full liquid-glass-capsule liquid-bevel shadow-2xl z-20">
+              <button
+                onClick={() => triggerYaw(-90)}
+                className="p-2 rounded-full hover:bg-[var(--chip)] text-[var(--muted)] hover:text-[var(--ink)] transition-colors cursor-pointer"
+                title="Rotate Counter-Clockwise 90°"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => triggerYaw(360)}
+                className="px-3.5 py-1 text-xs font-mono font-bold text-[var(--sage)] hover:bg-[var(--sage-tint)]/80 rounded-full transition-colors cursor-pointer"
+                title="Perform Full 360° Inspection"
+              >
+                360°
+              </button>
+              <button
+                onClick={() => triggerYaw(90)}
+                className="p-2 rounded-full hover:bg-[var(--chip)] text-[var(--muted)] hover:text-[var(--ink)] transition-colors cursor-pointer"
+                title="Rotate Clockwise 90°"
+              >
+                <RotateCw className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          /* View 2: Interactive Geospatial Migration & Flyway Map */
+          <div className="relative w-full h-full pt-14">
+            <FlywayMap
+              species={tracked}
+              initialSpeciesId={currentBird.scientificName}
+              height="100%"
+              showSidebar={false}
+            />
+          </div>
+        )}
 
         {/* Stage Caption Bottom Center */}
         <div className="w-full text-center pb-2 z-10 pointer-events-none">
           <p className="text-xs text-[var(--muted)] italic font-display">
-            "{currentSpecimen.caption}"
+            "{currentAsset.caption}"
           </p>
         </div>
       </section>
 
-      {/* 3. Right Info & Anatomical Traits Column */}
+      {/* 3. Right Scientific Dossier Column (Fully Enriched with AVONET & Movebank Data) */}
       <aside
-        className={`w-full lg:w-80 xl:w-96 p-6 border-t lg:border-t-0 lg:border-l border-[var(--line)] bg-[var(--panel)] flex flex-col justify-between shrink-0 overflow-y-auto transition-transform duration-500 z-20 ${
-          isFocusMode ? "translate-x-full opacity-0 pointer-events-none" : "translate-x-0 opacity-100"
+        className={`w-full lg:w-80 xl:w-96 p-5 sm:p-6 border-t lg:border-t-0 lg:border-l border-[var(--line)] bg-[var(--panel)] flex flex-col justify-between shrink-0 overflow-y-auto transition-transform duration-500 z-20 ${
+          isFocusMode ? "!hidden" : ""
         }`}
       >
-        <div>
+        <div className="space-y-4">
           {/* Header */}
-          <div className="mb-4">
-            <span className="text-[10px] font-mono tracking-widest uppercase text-[var(--sage)] font-bold">
-              {currentSpecimen.family}
-            </span>
-            <h1 className="text-3xl font-bold tracking-tight text-[var(--ink)] font-display mt-1">
-              {currentSpecimen.name}
-            </h1>
-            <p className="text-sm text-[var(--muted)] italic font-display mt-0.5">
-              {currentSpecimen.latin}
-            </p>
-          </div>
-
-          {/* Tags */}
-          <div className="flex flex-wrap gap-1.5 mb-5">
-            {currentSpecimen.tags.map((tag) => (
-              <span
-                key={tag}
-                className="text-[11px] px-3 py-0.5 rounded-full bg-[var(--chip)] text-[var(--muted)] border border-[var(--line)] font-medium"
-              >
-                {tag}
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <span className="text-[10.5px] font-mono tracking-widest uppercase text-[var(--sage)] font-bold">
+                {currentBird.order} · {currentBird.family}
               </span>
-            ))}
-          </div>
 
-          {/* Description */}
-          <p className="text-xs text-[var(--ink)] leading-relaxed mb-6 font-normal">
-            {currentSpecimen.description}
-          </p>
-
-          {/* Key Traits */}
-          <div className="mb-6">
-            <h3 className="text-xs font-mono uppercase tracking-wider text-[var(--muted)] pb-2 border-b border-[var(--line)] mb-3 font-semibold">
-              Key Traits
-            </h3>
-            <div className="space-y-2.5">
-              {currentSpecimen.traits.map((trait) => {
-                const Icon = trait.icon;
-                return (
-                  <div key={trait.label} className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2 text-[var(--muted)]">
-                      <Icon className="w-3.5 h-3.5 text-[var(--sage)]" />
-                      <span>{trait.label}</span>
-                    </div>
-                    <span className="font-bold text-[var(--ink)]">{trait.value}</span>
-                  </div>
-                );
-              })}
+              {/* IUCN Status Badge */}
+              <span
+                className={`inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
+                  isVulnerable
+                    ? "bg-[#b28236]/15 text-[#c4923f] border-[#b28236]/30"
+                    : "bg-[var(--sage-tint)] text-[var(--sage)] border-[var(--sage)]/25"
+                }`}
+              >
+                {isVulnerable ? (
+                  <ShieldAlert className="w-3 h-3 text-[#c4923f]" />
+                ) : (
+                  <ShieldCheck className="w-3 h-3 text-[var(--sage)]" />
+                )}
+                <span>{conservationLabel(currentBird.conservation?.rlCategory || currentBird.iucnCategory)}</span>
+              </span>
             </div>
-          </div>
 
-          {/* Habitat */}
-          <div className="p-3.5 rounded-xl bg-[var(--bg)] border border-[var(--line)] mb-6">
-            <div className="flex items-center gap-1.5 text-xs text-[var(--sage)] font-bold mb-1">
-              <Compass className="w-3.5 h-3.5" />
-              <span>Habitat</span>
-            </div>
-            <p className="text-xs text-[var(--muted)] leading-relaxed">
-              {currentSpecimen.habitat}
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--ink)] font-display mt-0.5">
+              {currentBird.name}
+            </h1>
+            <p className="text-xs text-[var(--muted)] italic font-display mt-0.5">
+              {currentBird.scientificName} ({currentBird.commonName})
             </p>
           </div>
+
+          {/* Audio Vocalization Chirp Pill */}
+          <div className="flex items-center gap-2">
+            <BirdAudioButton scientificName={currentBird.scientificName} name={currentBird.name} />
+
+            {currentBird.telemetry?.hasTracking && (
+              <button
+                onClick={() => setStageMode("flyway")}
+                className="px-3 py-2 rounded-xl text-xs font-semibold bg-[var(--sage-tint)] text-[var(--sage)] border border-[var(--sage)]/30 hover:bg-[var(--sage)] hover:text-[var(--sage-ink)] transition-all cursor-pointer flex items-center gap-1.5"
+                title="Inspect real GPS animal-borne tracks on map"
+              >
+                <Radio className="w-3.5 h-3.5 animate-pulse" />
+                <span>Flyway</span>
+              </button>
+            )}
+          </div>
+
+          {/* Dossier Tabs Navigation */}
+          <div className="flex items-center gap-1 border-b border-[var(--line)] pb-2 overflow-x-auto scrollbar-none">
+            <button
+              onClick={() => setSidebarTab("morphometrics")}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                sidebarTab === "morphometrics"
+                  ? "bg-[var(--sage)] text-[var(--sage-ink)] shadow-sm"
+                  : "text-[var(--muted)] hover:text-[var(--ink)]"
+              }`}
+            >
+              Morphometrics
+            </button>
+
+            <button
+              onClick={() => setSidebarTab("ecology")}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                sidebarTab === "ecology"
+                  ? "bg-[var(--sage)] text-[var(--sage-ink)] shadow-sm"
+                  : "text-[var(--muted)] hover:text-[var(--ink)]"
+              }`}
+            >
+              Ecology
+            </button>
+
+            <button
+              onClick={() => setSidebarTab("telemetry")}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                sidebarTab === "telemetry"
+                  ? "bg-[var(--sage)] text-[var(--sage-ink)] shadow-sm"
+                  : "text-[var(--muted)] hover:text-[var(--ink)]"
+              }`}
+            >
+              Telemetry
+            </button>
+
+            <button
+              onClick={() => setSidebarTab("conservation")}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                sidebarTab === "conservation"
+                  ? "bg-[var(--sage)] text-[var(--sage-ink)] shadow-sm"
+                  : "text-[var(--muted)] hover:text-[var(--ink)]"
+              }`}
+            >
+              Status
+            </button>
+          </div>
+
+          {/* TAB 1: MORPHOMETRICS & AERODYNAMICS */}
+          {sidebarTab === "morphometrics" && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 rounded-xl bg-[var(--bg)] border border-[var(--line)]">
+                  <div className="text-[10px] text-[var(--muted)]">Culmen Beak</div>
+                  <div className="text-xs font-bold text-[var(--ink)] mt-0.5">
+                    {currentBird.morphometrics?.beakLengthCulmenMm || "—"} mm
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-[var(--bg)] border border-[var(--line)]">
+                  <div className="text-[10px] text-[var(--muted)]">Depth × Width</div>
+                  <div className="text-xs font-bold text-[var(--ink)] mt-0.5">
+                    {currentBird.morphometrics?.beakDepthMm || "—"} × {currentBird.morphometrics?.beakWidthMm || "—"} mm
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-[var(--bg)] border border-[var(--line)]">
+                  <div className="text-[10px] text-[var(--muted)]">Wing Length</div>
+                  <div className="text-xs font-bold text-[var(--ink)] mt-0.5">
+                    {currentBird.morphometrics?.wingLengthMm || "—"} mm
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-[var(--bg)] border border-[var(--line)]">
+                  <div className="text-[10px] text-[var(--muted)]">Body Mass</div>
+                  <div className="text-xs font-bold text-[var(--ink)] mt-0.5">
+                    {currentBird.morphometrics?.massFormatted || currentBird.massG}
+                  </div>
+                </div>
+              </div>
+
+              {/* Hand-Wing Index (HWI) Aerodynamic Gauge */}
+              <div className="p-3 rounded-xl bg-[var(--bg)] border border-[var(--line)]">
+                <div className="flex items-center justify-between text-xs mb-1.5">
+                  <span className="font-bold text-[var(--ink)]">Hand-Wing Index (HWI)</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--sage-tint)] text-[var(--sage)] font-bold">
+                    Score: {currentBird.morphometrics?.handWingIndex || 24}
+                  </span>
+                </div>
+                <div className="w-full h-1.5 rounded-full bg-[var(--line)] overflow-hidden my-1">
+                  <div
+                    className="h-full rounded-full bg-[var(--sage)]"
+                    style={{
+                      width: `${Math.min(Math.max((currentBird.morphometrics?.handWingIndex || 20) * 1.4, 15), 100)}%`,
+                    }}
+                  />
+                </div>
+                <div className="text-[9.5px] text-[var(--muted)] mt-1">
+                  Measures wing pointedness and transcontinental dispersal efficiency.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: ECOLOGY & HABITAT */}
+          {sidebarTab === "ecology" && (
+            <div className="space-y-2.5 text-xs">
+              <div className="p-3 rounded-xl bg-[var(--bg)] border border-[var(--line)]">
+                <span className="text-[10px] text-[var(--muted)] block">Trophic Level & Niche</span>
+                <span className="font-bold text-[var(--ink)]">
+                  {currentBird.ecology?.trophicLevel} · {currentBird.ecology?.trophicNiche}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[var(--bg)] border border-[var(--line)]">
+                <span className="text-[10px] text-[var(--muted)] block">Primary Lifestyle</span>
+                <span className="font-bold text-[var(--ink)]">
+                  {currentBird.ecology?.primaryLifestyle} ({currentBird.ecology?.migrationLabel})
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[var(--bg)] border border-[var(--line)]">
+                <span className="text-[10px] text-[var(--muted)] block">Habitat Canopy Density</span>
+                <span className="font-bold text-[var(--ink)]">
+                  {currentBird.ecology?.habitatDensity}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[var(--bg)] border border-[var(--line)]">
+                <span className="text-[10px] text-[var(--muted)] block">Global Breeding Range</span>
+                <span className="font-bold text-[var(--ink)] font-mono">
+                  {currentBird.ecology?.rangeSizeFormatted || currentBird.range}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: TELEMETRY & FLYWAY */}
+          {sidebarTab === "telemetry" && (
+            <div className="space-y-3">
+              <div className="p-3 rounded-xl bg-[var(--bg)] border border-[var(--line)] space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-[var(--ink)] flex items-center gap-1.5">
+                    <Radio className="w-3.5 h-3.5 text-[var(--sage)] animate-pulse" />
+                    Movebank Tagging
+                  </span>
+                  <span className="text-[10px] font-mono text-[var(--muted)]">
+                    {currentBird.telemetry?.points.toLocaleString()} fixes
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-center pt-1 border-t border-[var(--line)] text-xs">
+                  <div>
+                    <div className="font-bold text-[var(--ink)] font-mono">
+                      {currentBird.telemetry?.individuals || "Sample"}
+                    </div>
+                    <div className="text-[10px] text-[var(--muted)]">Individuals</div>
+                  </div>
+                  <div>
+                    <div className="font-bold text-[var(--sage)]">
+                      {currentBird.telemetry?.peakMonth || "Spring"}
+                    </div>
+                    <div className="text-[10px] text-[var(--muted)]">Peak Month</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 12-Month Seasonal Wave */}
+              <div className="p-3 rounded-xl bg-[var(--bg)] border border-[var(--line)]">
+                <div className="text-[10.5px] font-semibold text-[var(--ink)] mb-2">
+                  Annual Seasonal Activity (GBIF)
+                </div>
+                <div className="grid grid-cols-12 gap-0.5 items-end h-14">
+                  {(currentBird.telemetry?.monthlyDistribution || [20, 30, 50, 80, 95, 100, 90, 75, 60, 45, 30, 20]).map(
+                    (val, idx) => (
+                      <div key={idx} className="flex flex-col items-center h-full justify-end">
+                        <div
+                          style={{ height: `${val}%` }}
+                          className={`w-full rounded-t ${
+                            months[idx] === currentBird.telemetry?.peakMonth
+                              ? "bg-[var(--sage)]"
+                              : "bg-[var(--line)]"
+                          }`}
+                        />
+                        <span className="text-[8px] font-mono text-[var(--muted)] mt-1">
+                          {months[idx][0]}
+                        </span>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+
+              <button
+                onClick={() => setStageMode("flyway")}
+                className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold bg-[var(--sage)] text-[var(--sage-ink)] hover:opacity-90 flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
+              >
+                <Navigation2 className="w-3.5 h-3.5" />
+                <span>Open Geospatial Flyway Map</span>
+              </button>
+            </div>
+          )}
+
+          {/* TAB 4: CONSERVATION & STATUS */}
+          {sidebarTab === "conservation" && (
+            <div className="space-y-3 text-xs">
+              <div className="p-3 rounded-xl bg-[var(--bg)] border border-[var(--line)] flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] text-[var(--muted)]">BirdLife IUCN Status</span>
+                  <div className="font-bold text-[var(--ink)] text-sm mt-0.5">
+                    {currentBird.conservation?.rlLabel || currentBird.iucnLabel}
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span className="text-[10px] text-[var(--muted)]">Population Trend</span>
+                  <div className="font-bold text-[var(--ink)] flex items-center gap-1 justify-end mt-0.5">
+                    {currentBird.conservation?.populationTrend === "Increasing" && (
+                      <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+                    )}
+                    {currentBird.conservation?.populationTrend === "Decreasing" && (
+                      <TrendingDown className="w-3.5 h-3.5 text-rose-600" />
+                    )}
+                    {currentBird.conservation?.populationTrend === "Stable" && (
+                      <Minus className="w-3.5 h-3.5 text-[var(--sage)]" />
+                    )}
+                    <span>{currentBird.conservation?.populationTrend || "Stable"}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[var(--bg)] border border-[var(--line)]">
+                <span className="text-[10px] text-[var(--muted)] block mb-1">Estimated Global Population</span>
+                <span className="font-mono font-bold text-[var(--ink)]">
+                  {currentBird.conservation?.populationSize || "Monitored across breeding zones"}
+                </span>
+              </div>
+
+              <p className="text-[11px] text-[var(--muted)] leading-relaxed">
+                {currentBird.description}
+              </p>
+            </div>
+          )}
         </div>
 
-        {/* Close-up Lens Detail Button */}
+        {/* Bottom Close-Up Lens Button */}
         <button
           onClick={toggleLens}
-          className={`w-full p-3.5 rounded-2xl flex items-center justify-between border transition-all cursor-pointer ${
+          className={`w-full p-3 rounded-2xl flex items-center justify-between border transition-all cursor-pointer mt-4 ${
             isLensOpen
               ? "bg-[var(--sage-tint)] border-[var(--sage)] text-[var(--ink)]"
               : "bg-[var(--panel)] border-[var(--line)] hover:border-[var(--sage)] text-[var(--muted)] hover:text-[var(--ink)]"
           }`}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <div
-              className="w-12 h-12 rounded-full border border-[var(--sage)]/50 overflow-hidden shrink-0 shadow-sm"
+              className="w-10 h-10 rounded-full border border-[var(--sage)]/50 overflow-hidden shrink-0 shadow-sm"
               style={{
-                backgroundImage: `url(${currentSpecimen.imageUrl})`,
+                backgroundImage: `url(${currentBird.imageUrl})`,
                 backgroundSize: "480%",
-                backgroundPosition: currentSpecimen.lensPosition,
+                backgroundPosition: currentAsset.lensPosition,
               }}
             />
             <div className="text-left">
               <div className="text-xs font-bold text-[var(--ink)]">Close-up Micro Lens</div>
               <div className="text-[10px] text-[var(--muted)]">
-                {isLensOpen ? "Click to reset zoom" : "Inspect feather microstructure"}
+                {isLensOpen ? "Reset stage magnification" : "Inspect feather microstructure"}
               </div>
             </div>
           </div>

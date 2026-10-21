@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 @theme {
   --font-display: "Newsreader", Iowan Old Style, Georgia, serif;
@@ -15,15 +16,22 @@
 :root {
   /* Day Theme (Natural Linen, Bone Paper & Botanical Sage from birds p.txt) */
   --bg: #f6f1e7;
+  --bg-rgb: 246, 241, 231;
   --panel: #fbf8f1;
+  --panel-rgb: 251, 248, 241;
   --line: #e7e0d1;
+  --line-rgb: 231, 224, 209;
   --ink: #1b1a17;
   --muted: #6d685d;
   --sage: #4d5a3d;
+  --sage-rgb: 77, 90, 61;
   --sage-ink: #ffffff;
   --sage-tint: #e9ebdc;
   --chip: #efeadd;
   --shadow: 60, 48, 28;
+  --glass-specular: 255, 255, 255;
+  --glass-specular-alpha: 0.65;
+  --glass-bevel-alpha: 0.28;
   --ease: cubic-bezier(0.22, 0.8, 0.24, 1);
 }
 
@@ -31,15 +39,22 @@
 [data-theme="dusk"],
 html.dark {
   --bg: #14170f;
+  --bg-rgb: 20, 23, 15;
   --panel: #1b1f15;
+  --panel-rgb: 27, 31, 21;
   --line: #2d3324;
+  --line-rgb: 45, 51, 36;
   --ink: #f2ecdf;
   --muted: #a8a392;
   --sage: #a9b98a;
+  --sage-rgb: 169, 185, 138;
   --sage-ink: #14170f;
   --sage-tint: #283020;
   --chip: #262b1d;
   --shadow: 0, 0, 0;
+  --glass-specular: 255, 255, 255;
+  --glass-specular-alpha: 0.24;
+  --glass-bevel-alpha: 0.12;
   --ease: cubic-bezier(0.22, 0.8, 0.24, 1);
 }
 
@@ -135,4 +150,160 @@ body {
 
 .animate-float-dust {
   animation: float-dust 14s ease-in-out infinite;
+}
+
+/* Leaflet container & theme styling */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  font-family: inherit;
+}
+
+.leaflet-popup-content-wrapper {
+  background: var(--panel) !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 15px 35px -10px rgba(var(--shadow), 0.3) !important;
+  padding: 4px !important;
+}
+
+.leaflet-popup-tip {
+  background: var(--panel) !important;
+  border: 1px solid var(--line) !important;
+}
+
+.leaflet-tooltip {
+  background: var(--panel) !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 14px rgba(var(--shadow), 0.15) !important;
+  font-family: inherit !important;
+  font-size: 11px !important;
+}
+
+/* ==========================================================================
+   LiquidGL Inspired Translucent Glassmorphism & Specular Refraction
+   ========================================================================== */
+
+/* Standard Liquid Glass Pane (Translucent base with frosted optical blur & bevel) */
+.site-nav {
+  background: linear-gradient(115deg, rgba(var(--panel-rgb), .93), rgba(var(--panel-rgb), .74) 55%, rgba(var(--panel-rgb), .88));
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border-bottom: 1px solid rgba(var(--line-rgb), .65);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), 0 4px 24px -12px rgba(var(--shadow), .14);
+}
+
+.liquid-glass {
+  background: rgba(var(--panel-rgb), 0.74);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(var(--line-rgb), 0.8);
+  box-shadow:
+    0 12px 32px -8px rgba(var(--shadow), 0.14),
+    0 2px 6px 0 rgba(var(--shadow), 0.05),
+    inset 0 1px 1.5px 0 rgba(var(--glass-specular), var(--glass-specular-alpha)),
+    inset 0 -1px 1px 0 rgba(0, 0, 0, 0.05);
+  position: relative;
+}
+
+/* Elevated Liquid Glass (Dossier Modals, Overlays, Floating Stage Controls) */
+.liquid-glass-elevated {
+  background: rgba(var(--panel-rgb), 0.86);
+  backdrop-filter: blur(28px) saturate(175%);
+  -webkit-backdrop-filter: blur(28px) saturate(175%);
+  border: 1px solid rgba(var(--line-rgb), 0.85);
+  box-shadow:
+    0 25px 65px -15px rgba(var(--shadow), 0.38),
+    0 10px 24px -5px rgba(var(--shadow), 0.16),
+    inset 0 1.5px 2px 0 rgba(var(--glass-specular), var(--glass-specular-alpha)),
+    inset 0 -1.5px 1.5px 0 rgba(0, 0, 0, 0.08);
+}
+
+/* Liquid Glass Floating Capsule (Navigation Bars, Floating Scrubber, Badges) */
+.liquid-glass-capsule {
+  background: rgba(var(--panel-rgb), 0.82);
+  backdrop-filter: blur(22px) saturate(170%);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  border: 1px solid rgba(var(--line-rgb), 0.75);
+  box-shadow:
+    0 8px 25px -6px rgba(var(--shadow), 0.15),
+    inset 0 1px 1.2px 0 rgba(var(--glass-specular), var(--glass-specular-alpha)),
+    inset 0 -1px 1px 0 rgba(0, 0, 0, 0.04);
+}
+
+/* Double Bevel Edge (Simulates liquidGL lens bevel depth and refraction rim) */
+.liquid-bevel:not(.fixed):not(.absolute):not(.sticky) {
+  position: relative;
+}
+.liquid-bevel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(var(--glass-specular), var(--glass-specular-alpha)) 0%,
+    rgba(var(--sage-rgb), 0.18) 40%,
+    rgba(var(--line-rgb), 0.08) 70%,
+    rgba(var(--glass-specular), calc(var(--glass-specular-alpha) * 0.45)) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Interactive Liquid Specular Glimmer (Mouse tracking liquid light refraction) */
+.liquid-glass-sheen {
+  position: relative;
+  overflow: hidden;
+}
+.liquid-glass-sheen::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(
+    circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    rgba(var(--glass-specular), 0.18) 0%,
+    rgba(var(--sage-rgb), 0.08) 28%,
+    transparent 62%
+  );
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  z-index: 2;
+}
+.liquid-glass-sheen:hover::after {
+  opacity: 1;
+}
+
+/* Tactile Liquid Pill Button */
+.liquid-pill-btn {
+  background: rgba(var(--sage-rgb), 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 4px 16px -2px rgba(var(--sage-rgb), 0.32),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 1px 0 rgba(0, 0, 0, 0.15);
+  transition: all 0.25s var(--ease);
+}
+.liquid-pill-btn:hover {
+  background: rgba(var(--sage-rgb), 1);
+  box-shadow:
+    0 8px 24px -3px rgba(var(--sage-rgb), 0.45),
+    inset 0 1.5px 1.5px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -1px 1px 0 rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px) scale(1.02);
+}
+.liquid-pill-btn:active {
+  transform: translateY(0) scale(0.98);
 }

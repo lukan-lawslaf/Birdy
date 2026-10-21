@@ -1,14 +1,18 @@
-import React, { useState } from "react";
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import React, { lazy, Suspense, useEffect, useLayoutEffect, useState } from "react";
+import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { ThemeProvider } from "./lib/ThemeContext";
 import { AppNav } from "./components/AppNav";
+import { AgentPopup } from "./components/AgentPopup";
 import { LandingPage } from "./pages/LandingPage";
-import { AtlasPage } from "./pages/AtlasPage";
-import { EncyclopediaPage } from "./pages/EncyclopediaPage";
-import { MOCK_BIRDS, BirdSpecies } from "./data/mockBirds";
 import { CinematicIntroOverlay } from "./components/CinematicIntroOverlay";
-import { Search, X, Feather, ArrowRight } from "lucide-react";
+import { assetUrl, searchSpecies, type SpeciesListItem } from "./lib/api";
+import { Search, X, Feather, ArrowRight, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+
+const AtlasPage = lazy(() => import("./pages/AtlasPage").then((m) => ({ default: m.AtlasPage })));
+const EncyclopediaPage = lazy(() => import("./pages/EncyclopediaPage").then((m) => ({ default: m.EncyclopediaPage })));
+const FlywaysPage = lazy(() => import("./pages/FlywaysPage").then((m) => ({ default: m.FlywaysPage })));
+const PhylogenyPage = lazy(() => import("./pages/PhylogenyPage").then((m) => ({ default: m.PhylogenyPage })));
 
 function GlobalSearchModal({
   isOpen,
@@ -17,26 +21,56 @@ function GlobalSearchModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onSelectBird: (b: BirdSpecies) => void;
+  onSelectBird: (name: string) => void;
 }) {
   const [query, setQuery] = useState("");
+  const [results, setResults] = useState<SpeciesListItem[]>([]);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const results = query.trim()
-    ? MOCK_BIRDS.filter(
-        (b) =>
-          b.name.toLowerCase().includes(query.toLowerCase()) ||
-          b.commonName.toLowerCase().includes(query.toLowerCase()) ||
-          b.scientificName.toLowerCase().includes(query.toLowerCase()) ||
-          b.family.toLowerCase().includes(query.toLowerCase())
-      ).slice(0, 5)
-    : [];
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose]);
+
+  // Debounced server search — the catalogue is ~11,000 species, so filtering a
+  // local copy is no longer possible and a request per keystroke is wasteful.
+  useEffect(() => {
+    const term = query.trim();
+    if (term.length < 2) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    const id = setTimeout(() => {
+      searchSpecies(term, 6)
+        .then((page) => {
+          if (!cancelled) setResults(page.items);
+        })
+        .catch(() => {
+          if (!cancelled) setResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
+  }, [query]);
 
   if (!isOpen) return null;
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 select-none">
+      <div role="dialog" aria-modal="true" aria-label="Search birds" className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 select-none">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -61,43 +95,55 @@ function GlobalSearchModal({
               placeholder="Search by bird name, Latin binomial, or family..."
               className="w-full bg-transparent text-sm text-[var(--ink)] placeholder-[var(--muted)] focus:outline-none"
             />
-            <button onClick={onClose} className="text-[var(--muted)] hover:text-[var(--ink)] p-1 cursor-pointer">
+            <button onClick={onClose} aria-label="Close search" className="text-[var(--muted)] hover:text-[var(--ink)] p-1 cursor-pointer">
               <X className="w-4 h-4" />
             </button>
           </div>
 
           <div className="mt-3 max-h-80 overflow-y-auto">
-            {results.length > 0 ? (
+            {loading ? (
+              <div className="flex items-center justify-center gap-2 py-8 text-xs text-[var(--muted)]">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Searching the atlas…
+              </div>
+            ) : results.length > 0 ? (
               <div className="space-y-1">
                 {results.map((bird) => (
-                  <div
-                    key={bird.id}
+                  <button type="button"
+                    key={bird.scientific_name}
                     onClick={() => {
                       onClose();
-                      onSelectBird(bird);
+                      onSelectBird(bird.scientific_name);
                     }}
-                    className="flex items-center justify-between p-3 rounded-xl hover:bg-[var(--chip)] cursor-pointer transition-colors group"
+                    className="w-full text-left flex items-center justify-between p-3 rounded-xl hover:bg-[var(--chip)] cursor-pointer transition-colors group"
                   >
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={bird.imageUrl}
-                        alt={bird.name}
-                        className="w-10 h-10 object-contain rounded-lg bg-[var(--bg)] p-1 border border-[var(--line)]"
-                      />
-                      <div>
-                        <div className="text-sm font-semibold text-[var(--ink)] font-display group-hover:text-[var(--sage)]">
-                          {bird.name}
+                    <div className="flex items-center gap-3 min-w-0">
+                      {bird.image_url ? (
+                        <img
+                          src={assetUrl(bird.image_url)}
+                          alt={bird.common_name ?? bird.scientific_name}
+                          loading="lazy"
+                          className="w-10 h-10 object-contain rounded-lg bg-[var(--bg)] p-1 border border-[var(--line)] shrink-0"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-[var(--bg)] border border-[var(--line)] flex items-center justify-center shrink-0">
+                          <Feather className="w-4 h-4 text-[var(--muted)]" />
                         </div>
-                        <div className="text-xs text-[var(--muted)] italic font-display">
-                          {bird.scientificName} · {bird.family}
+                      )}
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-[var(--ink)] font-display group-hover:text-[var(--sage)] truncate">
+                          {bird.common_name ?? bird.scientific_name}
+                        </div>
+                        <div className="text-xs text-[var(--muted)] italic font-display truncate">
+                          {bird.scientific_name}
+                          {bird.family ? ` · ${bird.family}` : ""}
                         </div>
                       </div>
                     </div>
-                    <ArrowRight className="w-4 h-4 text-[var(--muted)] group-hover:text-[var(--sage)] transition-transform group-hover:translate-x-1" />
-                  </div>
+                    <ArrowRight className="w-4 h-4 text-[var(--muted)] group-hover:text-[var(--sage)] transition-transform group-hover:translate-x-1 shrink-0 ml-2" />
+                  </button>
                 ))}
               </div>
-            ) : query.trim() ? (
+            ) : query.trim().length >= 2 ? (
               <div className="text-center py-8 text-xs text-[var(--muted)]">
                 No birds found matching "{query}".
               </div>
@@ -136,29 +182,58 @@ function GlobalSearchModal({
 
 export function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const location = useLocation();
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [location.pathname, location.search]);
+
+  // Only search lives here — the modal is above the router's pages, so a
+  // selection has to navigate rather than open an in-page modal.
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "/" || event.metaKey || event.ctrlKey) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      setIsSearchOpen(true);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <ThemeProvider>
-      <BrowserRouter>
-        {/* Cinematic Intro & Animated Kingfisher Loading Overlay */}
+      <div className="min-h-screen bg-[var(--bg)] text-[var(--ink)] flex flex-col font-sans transition-colors duration-600">
         <CinematicIntroOverlay />
-
-        <div className="min-h-screen bg-[var(--bg)] text-[var(--ink)] flex flex-col font-sans transition-colors duration-600">
-          <AppNav onOpenSearch={() => setIsSearchOpen(true)} />
-          <main className="flex-1">
-            <Routes>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/atlas" element={<AtlasPage />} />
-              <Route path="/catalog" element={<EncyclopediaPage />} />
-            </Routes>
-          </main>
-          <GlobalSearchModal
-            isOpen={isSearchOpen}
-            onClose={() => setIsSearchOpen(false)}
-            onSelectBird={() => {}}
-          />
-        </div>
-      </BrowserRouter>
+        <AppNav onOpenSearch={() => setIsSearchOpen(true)} />
+        <main className="flex-1">
+          <Suspense fallback={<div role="status" className="min-h-[60vh] flex items-center justify-center text-[var(--muted)]">Opening the field guide…</div>}>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/atlas" element={<AtlasPage />} />
+            <Route path="/flyways" element={<FlywaysPage />} />
+            <Route path="/phylogeny" element={<PhylogenyPage />} />
+            <Route path="/catalog" element={<EncyclopediaPage />} />
+          </Routes>
+          </Suspense>
+        </main>
+        <GlobalSearchModal
+          isOpen={isSearchOpen}
+          onClose={() => setIsSearchOpen(false)}
+          onSelectBird={(name) => navigate(`/catalog?q=${encodeURIComponent(name)}`)}
+        />
+        <AgentPopup />
+      </div>
     </ThemeProvider>
   );
 }

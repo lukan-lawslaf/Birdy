@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: birdpedia-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r backend/requirements-runtime.txt
+    startCommand: python backend/start.py
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.11
+      - key: BIRDS_DB_URL
+        sync: false
+      - key: BIRDS_DB_SHA256
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: XENO_CANTO_KEY
+        sync: false
+      - key: GOOGLE_KEY
+        sync: false

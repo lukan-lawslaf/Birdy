@@ -143,21 +143,21 @@ export const KingfisherLoader: React.FC<KingfisherLoaderProps> = ({
           <defs>
             {/* Signature Electric Azure / Cerulean Wing Gradient */}
             <linearGradient id="kfAzureGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#0284c7" />
-              <stop offset="50%" stop-color="#38bdf8" />
-              <stop offset="100%" stop-color="#0369a1" />
+              <stop offset="0%" stopColor="#0284c7" />
+              <stop offset="50%" stopColor="#38bdf8" />
+              <stop offset="100%" stopColor="#0369a1" />
             </linearGradient>
 
             {/* Warm Chestnut / Ochre Breast Gradient */}
             <linearGradient id="kfChestGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#ea580c" />
-              <stop offset="100%" stop-color="#c2410c" />
+              <stop offset="0%" stopColor="#ea580c" />
+              <stop offset="100%" stopColor="#c2410c" />
             </linearGradient>
 
             {/* Pedestal Moss Stone Gradient */}
             <linearGradient id="kfStoneGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#ece5d8" />
-              <stop offset="100%" stop-color="#d5cebf" />
+              <stop offset="0%" stopColor="#ece5d8" />
+              <stop offset="100%" stopColor="#d5cebf" />
             </linearGradient>
           </defs>
 

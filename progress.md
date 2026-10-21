@@ -363,9 +363,9 @@ what this data actually is, not from that project's.
 ```
 backend/app/main.py       FastAPI app, CORS, routers
 backend/app/schemas.py    every response model (Pydantic v2)
-backend/app/routers/      one module per domain, 45 endpoints
-backend/app/services/     resolve.py · classifier.py · tracks.py
-backend/tests/            smoke_api.py (58 checks) · smoke_classify.py · smoke_audio.py · audio_coverage.py
+backend/app/routers/      one module per domain, 53 endpoints
+backend/app/services/     resolve.py · classifier.py · tracks.py · factsheet.py · agent.py · llm.py
+backend/tests/            smoke_api.py (58 checks) · smoke_classify.py · smoke_agent.py (40 checks) · smoke_audio.py · audio_coverage.py
 ```
 
 | Router | Endpoints | What it serves |
@@ -377,9 +377,10 @@ backend/tests/            smoke_api.py (58 checks) · smoke_classify.py · smoke
 | `/phylogeny` | 4 | the family tree (nested), the Hackett species tips |
 | `/geo` | 4 | richness as GeoJSON points, by country, as cells, and the histogram |
 | `/classify` | 2 | `POST /identify` and the class list |
+| `/agent` | 4 | photo in, identified species and a written summary out |
 | `/meta` | 4 | root, health (live DB check), row counts, provenance and coverage notes |
 
-49 endpoints, and every 200 response is a named schema in the OpenAPI document
+53 endpoints, and every 200 response is a named schema in the OpenAPI document
 — no untyped inline objects. `/species` and the other list endpoints return
 `Page[Item]`, so a generated client sees the real shape of `items` rather than
 `any[]`.
@@ -474,6 +475,7 @@ Docs at `http://127.0.0.1:8000/docs`. Test it (with the server up):
 ```bash
 cd backend && ./.venv/Scripts/python.exe tests/smoke_api.py
 cd backend && ./.venv/Scripts/python.exe tests/smoke_classify.py
+cd backend && ./.venv/Scripts/python.exe tests/smoke_agent.py     # runs the app in-process, no server needed
 cd backend && ./.venv/Scripts/python.exe tests/smoke_audio.py      # needs XENO_CANTO_KEY
 cd backend && ./.venv/Scripts/python.exe tests/audio_coverage.py 40
 ```
@@ -481,6 +483,100 @@ cd backend && ./.venv/Scripts/python.exe tests/audio_coverage.py 40
 `database.py` now pins a relative SQLite path to `backend/`, so the API and the
 ingest script always agree on which file they mean regardless of the working
 directory.
+
+### The identification agent
+
+A photo goes in; an identified species, a written paragraph, and display-ready
+stat cards come out. Four endpoints under `/agent`, plus the raw ranking that
+`/classify/identify` still serves.
+
+```
+POST /agent/identify         upload a photo   -> the species, a summary, cards, candidates
+POST /agent/ask              species + a question -> a grounded answer
+GET  /agent/species/{name}   the same summary without a photo
+GET  /agent/status           what the agent can do right now, no API call
+```
+
+The pipeline is **local classifier → optional vision check → database search →
+written summary**, and the ordering is the whole design:
+
+1. `classifier.predict()` ranks its 526 classes. ~40–90 ms, free, no quota.
+2. Only if the top-1 falls below `agent_vision_threshold` (0.45) — or
+   `verify=always` — does a vision model get asked for a second opinion. At 98%
+   top-1, a low score almost always means the bird is not one of the 526, which
+   is exactly when a second opinion is worth a call.
+3. `factsheet.py` gathers the species' rows in a fixed set of indexed queries.
+4. A text model writes the paragraph, given those rows and nothing else.
+
+**Why there is no tool-calling loop.** The obvious design is an agent that
+decides which facts to look up. It was measured and dropped. On this key
+`gemma-4-26b-a4b-it` accepts a `tools` payload and answers with prose *about*
+calling the tool rather than a `functionCall` part, and it 500s on images. That
+left two choices: give a model authority over which database rows matter, or
+keep that step deterministic and let the model only write. The second is safer
+and faster, and it is what the code does — the stat cards and the prose are
+generated from the same rows, so the paragraph cannot claim something the cards
+contradict.
+
+**What the models actually did**, measured 2026-10-14 against the live APIs with
+the real 939-character summary prompt:
+
+| Model | Result |
+|---|---|
+| `gemini-3.1-flash-lite` | **2.0 s**, 106 output tokens, clean prose — the one in use |
+| `gemma-4-26b-a4b-it` | 64.8 s, spent all 2998 tokens thinking, returned `""` |
+| `openai/gpt-oss-120b` (Groq) | HTTP 401, the key is not valid for `/chat/completions` |
+| `gemini-3.8-flash` | 98–118 s for "say OK" — unusable in a request path |
+| `gemini-3-flash-preview` | 503, high demand |
+
+The Gemma result is the interesting one. `maxOutputTokens` on this API counts
+thinking **and** output against a single budget, and Gemma rejects
+`thinkingConfig` outright ("Thinking budget is not supported for this model"), so
+a prompt this long leaves it no room to answer — at any budget. Gemini models do
+accept `{"thinkingBudget": 0}`, which is the difference between 2 seconds and a
+minute. **The lesson: a generous free tier is worth nothing if the model spends
+the budget thinking.** The chain is now both links in the gemini family, and
+Gemma is excluded rather than demoted.
+
+**Two things learned about the APIs themselves:**
+
+- **Groq's edge rejects Python's default User-Agent** with Cloudflare error 1010.
+  Every request carries `BROWSER_UA` in `llm.py`. Not a disguise — the API is
+  unusable without it. The key still 401s on completions, so Groq is supported
+  but out of the default chain; set `agent_text_models` to use it later.
+- **Providers were probed, not read about.** Two models the docs list as current
+  are gone (`gemini-2.5-flash` → 404 "no longer available to new users"), one
+  appears to work and does not.
+
+**Nothing is allowed to fail on quota.** Three layers, in order: the provider
+chain → a template summary written in Python from the same rows → and the
+structured facts are returned regardless. A spent free tier costs fluency and
+nothing else; `summary_source` reports which path produced the prose, and the
+template is deliberately built clause-by-clause from fields that exist, so it
+cannot say anything wrong. It just sounds plainer.
+
+**Honesty where the answer is weak.** The classifier always names the nearest of
+its 526 classes, even for a bird it has never seen. Rather than hide that, a
+below-threshold result sets `uncertain`, adds a `warnings` entry explaining the
+526-class limit, and — if the vision model says there is no bird in the photo at
+all — says so in `is_bird` while still returning the classifier's guess.
+Verified with a featureless grey square: the classifier answered "Gyrfalcon,
+1.4%", the vision model answered *"The image is a solid gray square with no
+visible subject or bird"*, and the response carried both facts plus two
+warnings. The endpoint returned 200.
+
+**Audio is read, never fetched.** `factsheet.py` only looks in the local
+Xeno-canto cache and never touches the network, which is what keeps `/identify`
+near a second for a warm species. A species with no cached recording comes back
+with no audio and the client can ask `/species/{name}/audio`, which is the
+endpoint that does the fetching. When cached, the picker prefers a compressed
+format over the archive's own quality grade — the archive does not transcode, so
+an "A"-grade WAV can be a 14 MB download.
+
+`tests/smoke_agent.py` covers all of it in 40 checks: four species identified
+from their own dataset images, the forced vision path, the no-bird path, the
+`verify=never` path, and every guard (400/404/415/422). It runs the app
+in-process over an ASGI transport, so there is no server to start first.
 
 ### Removed
 
@@ -504,8 +600,14 @@ Done and verified: raw data audit, model selection and quantization, name matchi
 (524/526), the database and its 21 tables, migration data from GBIF and eBird,
 GPS tracking (34 Movebank studies, 708,817 points), species images (11,101 rows),
 species summaries (250), richness cell coordinates (18,421/18,421), cleanup, the
-notes in this file, and the API (49 endpoints across 8 routers, all smoke-tested,
+notes in this file, and the API (53 endpoints across 9 routers, all smoke-tested,
 photo identification verified at 30/30 over HTTP).
+
+The identification agent is in: a photo in, an identified species and a written
+summary out, over `/agent`. The local classifier does the recognition, the
+database answer is gathered deterministically, and a model is only allowed to
+write the prose — with a template fallback so a spent free tier costs fluency
+and nothing else. Verified end to end, 40 checks. See "The identification agent".
 
 Bird sound is in, from **Xeno-canto**, verified end to end against the live
 archive — 34/34 checks, a recording streams as real audio, and a 40-species
@@ -539,3 +641,40 @@ cd backend && ./.venv/Scripts/python.exe -c "from app.database import SessionLoc
 ```
 
 
+
+
+## 2026-10-21 — frontend repair and verification
+
+The current project is a full frontend/API application; earlier data-only and
+frontend-removal notes above describe history rather than the present checkout.
+
+- Fixed the shared bevel rule that overrode fixed popup positioning. The agent
+  now uses a body portal, cancels stale UI results, supports Escape, and uses a
+  compact phone launcher that leaves pagination accessible.
+- Added the requested subtle glossy navigation and repaired responsive layouts,
+  catalogue deep links/filter resets, route scroll restoration and phone dossiers.
+- Conservation badges show full labels, including Data Deficient and extinct
+  categories. Unknown categories no longer silently become Least Concern.
+- Replaced the map's key-required CARTO tiles with attributed OpenStreetMap tiles.
+  Fixed the phone map's zero-height container, preserved zoom during playback,
+  used recorded timestamps for months, and kept tagged individuals separate.
+  Scientific/common tracking aliases now merge into 36 species while preserving
+  all 742,755 fixes and 3,879 individuals.
+- Expanded the atlas to 32 species: two existing GLBs and 30 curated CC BY/CC0
+  museum Sketchfab embeds. The rail is searchable and sorted by taxonomy/name,
+  with the local models first. Every museum model has creator/licence/source
+  credits. Model disposal, stale loads and focus-mode resizing were repaired.
+- Removed generic synthesized birdsong. Xeno-canto was returning 503 during this
+  audit; exact-species Wikimedia Commons recordings provide a credited fallback.
+  Real Kingfisher and Hoopoe playback was verified in the browser.
+- Replaced the unavailable Gemini fallback with a live-tested model, updated
+  thinking configuration and added vision fallback. The agent smoke suite passes.
+- Applied relevant fix.md recommendations: deduplicated/cached reads, route code
+  splitting, JSON compression and runtime-only deployment dependencies. Existing
+  skeletons, image lazy loading, pagination and database indexes remain in use.
+- Removed the false newsletter success flow and dead footer destinations.
+
+Verification: frontend production build; 58 API smoke checks; agent smoke suite;
+8 offline regression/startup tests; real browser checks at 1440, 768 and 390 px.
+See VERIFICATION.md for evidence and DEPLOYMENT.md for the free-hosting analysis.
+No cloud deployment has been created.

@@ -22,6 +22,7 @@ from app.models import (
     GbifOccurrence,
     MovementIndividual,
     Species,
+    SpeciesAudio,
     SpeciesImage,
     SpeciesSummary,
     Taxonomy,
@@ -29,6 +30,7 @@ from app.models import (
 )
 from app.routers.deps import DbDep, PageSizeQuery, PageQuery, SpeciesName, not_found, paginated
 from app.schemas import (
+    CommonsAudioList,
     ConservationOut,
     FilterOptions,
     GeoJSONFeatureCollection,
@@ -45,6 +47,7 @@ from app.schemas import (
     TraitOut,
 )
 from app.services import audio, resolve
+from app.services.factsheet import IUCN_LABELS
 
 router = APIRouter(prefix="/species", tags=["species"])
 
@@ -148,11 +151,10 @@ async def _best_image(db, scientific_name: str) -> SpeciesImage | None:
 
 
 async def _annotate(db, rows: list[tuple[Taxonomy, str | None]]) -> list[SpeciesListItem]:
-    """Fill in image, IUCN and classifier columns for one page of species.
+    """Fill in image, IUCN, classifier, morphometrics and telemetry columns for one page of species.
 
-    Two batched lookups rather than a join: joining the image table would
-    multiply rows, because three image classes legitimately share one species
-    (ROCK DOVE, FRILL BACK PIGEON and JACOBIN PIGEON are all Columba livia).
+    Batched lookups rather than multi-table joins to avoid multiplying rows
+    or triggering full scans on large tables.
     """
     names = [r[0].sci_name for r in rows if r[0].sci_name]
     if not names:
@@ -182,22 +184,62 @@ async def _annotate(db, rows: list[tuple[Taxonomy, str | None]]) -> list[Species
     ).all():
         labels.setdefault(sci, index)
 
+    traits_map = {}
+    for t in (
+        await db.execute(select(Trait).where(Trait.scientific_name.in_(names)))
+    ).scalars().all():
+        traits_map[t.scientific_name] = t
+
+    tracking_map = {}
+    for sci, count in (
+        await db.execute(
+            select(MovementIndividual.animal_taxon, func.count())
+            .where(MovementIndividual.animal_taxon.in_(names))
+            .group_by(MovementIndividual.animal_taxon)
+        )
+    ).all():
+        tracking_map[sci] = count
+
+    audio_set = set(
+        (
+            await db.execute(
+                select(SpeciesAudio.scientific_name)
+                .where(SpeciesAudio.scientific_name.in_(names))
+                .distinct()
+            )
+        ).scalars().all()
+    )
+
     items = []
     for taxonomy_row, rl_category in rows:
         image = images.get(taxonomy_row.sci_name)
+        t = traits_map.get(taxonomy_row.sci_name)
+        tr_count = tracking_map.get(taxonomy_row.sci_name, 0)
+        has_aud = taxonomy_row.sci_name in audio_set
+        iucn_clean = (rl_category or "").strip().upper() or None
+        iucn_lbl = IUCN_LABELS.get(iucn_clean, iucn_clean) if iucn_clean else None
+
         items.append(
             SpeciesListItem(
                 scientific_name=taxonomy_row.sci_name,
                 common_name=taxonomy_row.primary_com_name,
                 family=taxonomy_row.family,
                 order_name=taxonomy_row.order_name,
-                iucn_category=rl_category,
-                # Any image at all is reachable through our own endpoint, which
-                # either serves the stored bytes or redirects to the source.
+                iucn_category=iucn_clean,
+                iucn_label=iucn_lbl,
                 image_url=_image_url(taxonomy_row.sci_name) if image else None,
                 image_thumbnail_url=image[1] if image else None,
                 known_to_classifier=taxonomy_row.sci_name in labels,
                 label_index=labels.get(taxonomy_row.sci_name),
+                mass_g=t.mass_g if t else None,
+                wing_length_mm=t.wing_length_mm if t else None,
+                habitat=t.habitat if t else None,
+                trophic_niche=t.trophic_niche if t else None,
+                primary_lifestyle=t.primary_lifestyle if t else None,
+                migration_label=t.migration_label if t else None,
+                has_tracking=tr_count > 0,
+                tracking_points=tr_count,
+                has_audio=has_aud,
             )
         )
     return items
@@ -297,6 +339,7 @@ async def list_species(
     iucn: str | None = Query(None, description="IUCN category, e.g. LC, VU, EN"),
     has_image: bool = Query(False, description="Only species with a picture"),
     has_tracks: bool = Query(False, description="Only species with telemetry"),
+    names: str | None = Query(None, max_length=4000, description="Comma-separated scientific names, for a curated collection"),
     q: str | None = Query(None, description="Free-text name filter"),
     sort: str = Query(
         "taxonomic",
@@ -315,6 +358,8 @@ async def list_species(
     conditions = []
     if order:
         conditions.append(Taxonomy.order_name == order)
+    if names:
+        conditions.append(Taxonomy.sci_name.in_([name.strip() for name in names.split(",") if name.strip()]))
     if family:
         conditions.append(Taxonomy.family == family)
     if iucn:
@@ -401,7 +446,10 @@ async def stream_species_audio(xc_id: int, db: DbDep):
 
     upstream = None
     for url in candidates:
-        candidate = await run_in_threadpool(_open_audio, url)
+        try:
+            candidate = await run_in_threadpool(_open_audio, url)
+        except requests.RequestException:
+            continue
         if candidate.status_code == 200:
             upstream = candidate
             break
@@ -534,6 +582,19 @@ async def species_image(
         media_type=content_type,
         headers={**headers, "X-Image-Source": "wikipedia"},
     )
+
+
+@router.get("/{name}/audio/commons", response_model=CommonsAudioList)
+async def commons_species_audio(name: SpeciesName, db: DbDep):
+    from app.services import commons_audio
+    resolved = await resolve.resolve_species(db, name)
+    if resolved is None:
+        raise not_found("species", name)
+    try:
+        recordings = await run_in_threadpool(commons_audio.recordings, resolved.scientific_name)
+    except requests.RequestException:
+        raise HTTPException(status_code=502, detail="Wikimedia Commons audio is temporarily unavailable")
+    return {"scientific_name": resolved.scientific_name, "recordings": recordings}
 
 
 @router.get("/{name}/audio", response_model=SpeciesAudioList)

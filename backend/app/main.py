@@ -11,10 +11,11 @@ Interactive docs at /docs. Every domain hangs off a router:
     /phylogeny   the family and species trees
     /geo         the species richness grid
     /classify    photo identification
+    /agent       photo in, species and a written summary out
     /meta        health, row counts, provenance
 
-The database is read-only from here. It is built by `app.ingest.run`, which
-clears and reloads each table, so nothing in this service writes to it.
+Research tables are built by `app.ingest.run` and read by the API. Audio
+catalogue metadata is cached lazily when a species recording is requested.
 """
 
 import logging
@@ -22,12 +23,35 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 
 from app.config import settings
-from app.routers import classify, geo, meta, occurrence, phylogeny, species, taxonomy, tracking
+from app.routers import (
+    agent,
+    classify,
+    geo,
+    meta,
+    occurrence,
+    phylogeny,
+    species,
+    taxonomy,
+    tracking,
+)
 from app.services import classifier
 
 logger = logging.getLogger(__name__)
+
+
+class JsonGZipMiddleware:
+    """Compress large JSON collections while preserving streamed media."""
+    def __init__(self, app):
+        self.app = app
+        self.compressed = GZipMiddleware(app, minimum_size=1000, compresslevel=5)
+
+    async def __call__(self, scope, receive, send):
+        path = scope.get("path", "")
+        target = self.app if path.endswith(("/stream", "/image")) else self.compressed
+        await target(scope, receive, send)
 
 
 @asynccontextmanager
@@ -57,6 +81,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(JsonGZipMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
@@ -73,4 +99,5 @@ app.include_router(taxonomy.router)
 app.include_router(phylogeny.router)
 app.include_router(geo.router)
 app.include_router(classify.router)
+app.include_router(agent.router)
 app.include_router(meta.router)

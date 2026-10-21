@@ -18,3 +18,9 @@ python-multipart==0.0.20
 # --- classifier --------------------------------------------------------------
 onnxruntime==1.27.0
 numpy==2.2.6
+
+# --- tests -------------------------------------------------------------------
+# tests/smoke_agent.py drives the app in-process through an ASGI transport,
+# which needs an async HTTP client. The other smoke tests use requests, already
+# above.
+httpx==0.28.1

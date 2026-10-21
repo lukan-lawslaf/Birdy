@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useTheme } from "../lib/ThemeContext";
-import { Compass, Feather, BookOpen, Search, Menu, X, Sparkles, Sun, Moon } from "lucide-react";
+import { Compass, Feather, BookOpen, Search, Menu, X, Sparkles, Sun, Moon, Navigation2, Film, Network } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 interface AppNavProps {
@@ -15,8 +15,10 @@ export const AppNav: React.FC<AppNavProps> = ({ onOpenSearch }) => {
 
   const navLinks = [
     { path: "/", label: "Overview", icon: Compass },
-    { path: "/atlas", label: "Feather Atlas", icon: Feather, badge: "3D Lab" },
-    { path: "/catalog", label: "Species Catalog", icon: BookOpen },
+    { path: "/atlas", label: "Atlas", icon: Feather, badge: "3D Lab" },
+    { path: "/flyways", label: "Flyways", icon: Navigation2, badge: "GPS Map" },
+    { path: "/phylogeny", label: "Family Tree", icon: Network },
+    { path: "/catalog", label: "Catalog", icon: BookOpen },
   ];
 
   const isActive = (path: string) => {
@@ -26,12 +28,12 @@ export const AppNav: React.FC<AppNavProps> = ({ onOpenSearch }) => {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full px-4 sm:px-6 lg:px-10 py-3 bg-[var(--bg)]/90 backdrop-blur-md border-b border-[var(--line)] transition-colors duration-500">
+    <header className="site-nav sticky top-0 z-50 w-full px-4 sm:px-6 lg:px-10 py-3 transition-colors duration-500">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         {/* Brand */}
         <Link to="/" className="flex items-center gap-3 group select-none">
-          <div className="w-9 h-9 rounded-xl bg-[var(--sage-tint)] border border-[var(--sage)]/30 flex items-center justify-center text-[var(--sage)] shadow-sm group-hover:scale-105 transition-transform duration-300">
-            <Feather className="w-4 h-4 transition-transform group-hover:-rotate-12" />
+          <div className="w-9 h-9 rounded-xl liquid-glass liquid-bevel flex items-center justify-center text-[var(--sage)] shadow-sm group-hover:scale-105 transition-all duration-300">
+            <Feather className="w-4 h-4 transition-transform group-hover:-rotate-12 text-[var(--sage)]" />
           </div>
           <div className="flex flex-col">
             <span className="text-2xl font-bold tracking-tight text-[var(--ink)] font-display flex items-center gap-1">
@@ -43,8 +45,8 @@ export const AppNav: React.FC<AppNavProps> = ({ onOpenSearch }) => {
           </div>
         </Link>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-1 bg-[var(--panel)] p-1 rounded-full border border-[var(--line)] shadow-sm">
+        {/* Desktop Navigation - Liquid Glass Capsule */}
+        <nav aria-label="Main navigation" className="hidden xl:flex items-center gap-1 liquid-glass-capsule liquid-bevel p-1 rounded-full shadow-[0_6px_20px_rgba(var(--shadow),0.08)]">
           {navLinks.map((link) => {
             const active = isActive(link.path);
             const Icon = link.icon;
@@ -52,16 +54,17 @@ export const AppNav: React.FC<AppNavProps> = ({ onOpenSearch }) => {
               <Link
                 key={link.path}
                 to={link.path}
-                className={`relative px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-2 transition-all duration-200 select-none ${
+                aria-current={active ? "page" : undefined}
+                className={`relative px-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap flex items-center gap-2 transition-all duration-200 select-none ${
                   active
-                    ? "text-[var(--sage-ink)]"
-                    : "text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--chip)]"
+                    ? "text-[var(--sage-ink)] shadow-sm"
+                    : "text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--chip)]/70"
                 }`}
               >
                 {active && (
                   <motion.div
                     layoutId="nav-active-indicator"
-                    className="absolute inset-0 bg-[var(--sage)] rounded-full shadow-sm"
+                    className="absolute inset-0 bg-[var(--sage)] rounded-full shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_2px_8px_rgba(var(--shadow),0.2)]"
                     transition={{ type: "spring", stiffness: 380, damping: 30 }}
                   />
                 )}
@@ -70,10 +73,10 @@ export const AppNav: React.FC<AppNavProps> = ({ onOpenSearch }) => {
                   {link.label}
                   {link.badge && (
                     <span
-                      className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold uppercase tracking-wider ${
+                      className={`hidden lg:inline-block text-[9px] px-1.5 py-0.2 rounded-full font-bold uppercase tracking-wider ${
                         active
                           ? "bg-[var(--sage-ink)]/20 text-[var(--sage-ink)]"
-                          : "bg-[var(--sage-tint)] text-[var(--sage)] border border-[var(--sage)]/20"
+                          : "bg-[var(--sage-tint)] text-[var(--sage)] border border-[var(--sage)]/25"
                       }`}
                     >
                       {link.badge}
@@ -87,11 +90,22 @@ export const AppNav: React.FC<AppNavProps> = ({ onOpenSearch }) => {
 
         {/* Right Action Buttons */}
         <div className="flex items-center gap-2">
+          {/* Replay Cinematic Intro Button */}
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("birdpedia:replay-intro"))}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs text-[var(--muted)] liquid-glass-capsule hover:text-[var(--ink)] hover:border-[var(--sage)] transition-all cursor-pointer"
+            title="Replay cinematic video intro"
+            aria-label="Replay cinematic intro video"
+          >
+            <Film className="w-3.5 h-3.5 text-[var(--sage)]" />
+            <span className="hidden sm:inline font-medium">Intro</span>
+          </button>
+
           {/* Day / Dusk Theme Switcher Button */}
           <button
             onClick={toggleTheme}
             aria-label="Toggle between Day and Dusk natural lighting mode"
-            className="p-2 rounded-full bg-[var(--panel)] text-[var(--muted)] hover:text-[var(--ink)] border border-[var(--line)] hover:border-[var(--sage)] transition-colors shadow-sm cursor-pointer"
+            className="p-2.5 rounded-full liquid-glass-capsule text-[var(--muted)] hover:text-[var(--ink)] transition-all hover:scale-105 active:scale-95 cursor-pointer"
             title={`Switch to ${theme === "day" ? "Dusk (Dark)" : "Day (Natural)"} lighting`}
           >
             {theme === "day" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
@@ -101,7 +115,7 @@ export const AppNav: React.FC<AppNavProps> = ({ onOpenSearch }) => {
           {onOpenSearch && (
             <button
               onClick={onOpenSearch}
-              className="flex items-center gap-2 px-3 py-2 rounded-full text-xs text-[var(--muted)] bg-[var(--panel)] hover:bg-[var(--chip)] hover:text-[var(--ink)] border border-[var(--line)] transition-colors shadow-sm cursor-pointer"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-full text-xs text-[var(--muted)] liquid-glass-capsule hover:text-[var(--ink)] transition-all hover:scale-102 active:scale-98 cursor-pointer"
               title="Search species (Press /)"
             >
               <Search className="w-3.5 h-3.5 text-[var(--sage)]" />
@@ -115,7 +129,7 @@ export const AppNav: React.FC<AppNavProps> = ({ onOpenSearch }) => {
           {/* 3D Atlas CTA */}
           <Link
             to="/atlas"
-            className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold bg-[var(--sage)] text-[var(--sage-ink)] hover:opacity-90 shadow-sm transition-all hover:scale-[1.02] active:scale-95"
+            className="hidden lg:flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold liquid-pill-btn text-[var(--sage-ink)] shadow-md transition-all active:scale-95"
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span>3D Atlas</span>
@@ -124,8 +138,9 @@ export const AppNav: React.FC<AppNavProps> = ({ onOpenSearch }) => {
           {/* Mobile hamburger */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-lg text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--panel)] border border-[var(--line)]"
+            className="xl:hidden p-2 rounded-xl liquid-glass text-[var(--muted)] hover:text-[var(--ink)]"
             aria-label="Toggle navigation menu"
+            aria-expanded={mobileMenuOpen}
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -139,9 +154,9 @@ export const AppNav: React.FC<AppNavProps> = ({ onOpenSearch }) => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden overflow-hidden border-t border-[var(--line)] mt-3 pt-3"
+            className="xl:hidden overflow-hidden mt-3"
           >
-            <div className="flex flex-col gap-1.5 pb-2">
+            <div className="flex flex-col gap-1.5 p-2 rounded-2xl liquid-glass liquid-bevel">
               {navLinks.map((link) => {
                 const active = isActive(link.path);
                 const Icon = link.icon;

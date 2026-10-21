@@ -1,0 +1,261 @@
+{
+ "files": 2,
+ "findings": [
+  {
+   "level": "FAIL",
+   "id": "shadow",
+   "file": "frountend/src/components/AppNav.tsx",
+   "line": 35,
+   "match": "shadow-sm",
+   "message": "Shadow. Elements at rest carry none; only real overlays (menu, dialog, sticky bar) may."
+  },
+  {
+   "level": "WARN",
+   "id": "transition-all",
+   "file": "frountend/src/components/AppNav.tsx",
+   "line": 35,
+   "match": "transition-all",
+   "message": "transition: all. Name the properties (transform, opacity)."
+  },
+  {
+   "level": "FAIL",
+   "id": "mono",
+   "file": "frountend/src/components/AppNav.tsx",
+   "line": 42,
+   "match": "font-mono",
+   "message": "Monospace type. Only literal code may be monospace."
+  },
+  {
+   "level": "FAIL",
+   "id": "shadow",
+   "file": "frountend/src/components/AppNav.tsx",
+   "line": 49,
+   "match": "shadow-[0_6px_20px_rgba(var(--shadow),0.08)]",
+   "message": "Shadow. Elements at rest carry none; only real overlays (menu, dialog, sticky bar) may."
+  },
+  {
+   "level": "WARN",
+   "id": "transition-all",
+   "file": "frountend/src/components/AppNav.tsx",
+   "line": 58,
+   "match": "transition-all",
+   "message": "transition: all. Name the properties (transform, opacity)."
+  },
+  {
+   "level": "FAIL",
+   "id": "shadow",
+   "file": "frountend/src/components/AppNav.tsx",
+   "line": 60,
+   "match": "shadow-sm",
+   "message": "Shadow. Elements at rest carry none; only real overlays (menu, dialog, sticky bar) may."
+  },
+  {
+   "level": "FAIL",
+   "id": "shadow",
+   "file": "frountend/src/components/AppNav.tsx",
+   "line": 67,
+   "match": "shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_2px_8px_rgba(var(--sha",
+   "message": "Shadow. Elements at rest carry none; only real overlays (menu, dialog, sticky bar) may."
+  },
+  {
+   "level": "WARN",
+   "id": "transition-all",
+   "file": "frountend/src/components/AppNav.tsx",
+   "line": 96,
+   "match": "transition-all",
+   "message": "transition: all. Name the properties (transform, opacity)."
+  },
+  {
+   "level": "WARN",
+   "id": "transition-all",
+   "file": "frountend/src/components/AppNav.tsx",
+   "line": 108,
+   "match": "transition-all",
+   "message": "transition: all. Name the properties (transform, opacity)."
+  },
+  {
+   "level": "WARN",
+   "id": "transition-all",
+   "file": "frountend/src/components/AppNav.tsx",
+   "line": 118,
+   "match": "transition-all",
+   "message": "transition: all. Name the properties (transform, opacity)."
+  },
+  {
+   "level": "FAIL",
+   "id": "shadow",
+   "file": "frountend/src/components/AppNav.tsx",
+   "line": 132,
+   "match": "shadow-md",
+   "message": "Shadow. Elements at rest carry none; only real overlays (menu, dialog, sticky bar) may."
+  },
+  {
+   "level": "WARN",
+   "id": "transition-all",
+   "file": "frountend/src/components/AppNav.tsx",
+   "line": 132,
+   "match": "transition-all",
+   "message": "transition: all. Name the properties (transform, opacity)."
+  },
+  {
+   "level": "FAIL",
+   "id": "mono",
+   "file": "frountend/src/components/AgentPopup.tsx",
+   "line": 49,
+   "match": "font-mono",
+   "message": "Monospace type. Only literal code may be monospace."
+  },
+  {
+   "level": "FAIL",
+   "id": "shadow",
+   "file": "frountend/src/components/AgentPopup.tsx",
+   "line": 192,
+   "match": "shadow-xl",
+   "message": "Shadow. Elements at rest carry none; only real overlays (menu, dialog, sticky bar) may."
+  },
+  {
+   "level": "FAIL",
+   "id": "mono",
+   "file": "frountend/src/components/AgentPopup.tsx",
+   "line": 208,
+   "match": "font-mono",
+   "message": "Monospace type. Only literal code may be monospace."
+  },
+  {
+   "level": "FAIL",
+   "id": "shadow",
+   "file": "frountend/src/components/AgentPopup.tsx",
+   "line": 231,
+   "match": "shadow-2xl",
+   "message": "Shadow. Elements at rest carry none; only real overlays (menu, dialog, sticky bar) may."
+  },
+  {
+   "level": "FAIL",
+   "id": "hairline",
+   "file": "frountend/src/components/AgentPopup.tsx",
+   "line": 234,
+   "match": "border-b",
+   "message": "Thin rule / divider line. Separate with space, tone or scale; lines belong to real tables and form fields."
+  },
+  {
+   "level": "WARN",
+   "id": "glass",
+   "file": "frountend/src/components/AgentPopup.tsx",
+   "line": 234,
+   "match": "backdrop-blur",
+   "message": "Backdrop blur. One sticky bar at most; glass cards are a tell."
+  },
+  {
+   "level": "FAIL",
+   "id": "mono",
+   "file": "frountend/src/components/AgentPopup.tsx",
+   "line": 240,
+   "match": "font-mono",
+   "message": "Monospace type. Only literal code may be monospace."
+  },
+  {
+   "level": "FAIL",
+   "id": "shadow",
+   "file": "frountend/src/components/AgentPopup.tsx",
+   "line": 280,
+   "match": "shadow-md",
+   "message": "Shadow. Elements at rest carry none; only real overlays (menu, dialog, sticky bar) may."
+  },
+  {
+   "level": "WARN",
+   "id": "outlined-box",
+   "file": "frountend/src/components/AgentPopup.tsx",
+   "line": 292,
+   "match": "border",
+   "message": "A 1px outlined box. Prefer a filled surface or no box."
+  },
+  {
+   "level": "WARN",
+   "id": "glass",
+   "file": "frountend/src/components/AgentPopup.tsx",
+   "line": 304,
+   "match": "backdrop-blur",
+   "message": "Backdrop blur. One sticky bar at most; glass cards are a tell."
+  },
+  {
+   "level": "FAIL",
+   "id": "mono",
+   "file": "frountend/src/components/AgentPopup.tsx",
+   "line": 306,
+   "match": "font-mono",
+   "message": "Monospace type. Only literal code may be monospace."
+  },
+  {
+   "level": "FAIL",
+   "id": "mono",
+   "file": "frountend/src/components/AgentPopup.tsx",
+   "line": 322,
+   "match": "font-mono",
+   "message": "Monospace type. Only literal code may be monospace."
+  },
+  {
+   "level": "FAIL",
+   "id": "mono",
+   "file": "frountend/src/components/AgentPopup.tsx",
+   "line": 340,
+   "match": "font-mono",
+   "message": "Monospace type. Only literal code may be monospace."
+  },
+  {
+   "level": "FAIL",
+   "id": "mono",
+   "file": "frountend/src/components/AgentPopup.tsx",
+   "line": 367,
+   "match": "font-mono",
+   "message": "Monospace type. Only literal code may be monospace."
+  },
+  {
+   "level": "FAIL",
+   "id": "shadow",
+   "file": "frountend/src/components/AgentPopup.tsx",
+   "line": 411,
+   "match": "shadow-sm",
+   "message": "Shadow. Elements at rest carry none; only real overlays (menu, dialog, sticky bar) may."
+  },
+  {
+   "level": "FAIL",
+   "id": "mono",
+   "file": "frountend/src/components/AgentPopup.tsx",
+   "line": 421,
+   "match": "font-mono",
+   "message": "Monospace type. Only literal code may be monospace."
+  },
+  {
+   "level": "FAIL",
+   "id": "mono",
+   "file": "frountend/src/components/AgentPopup.tsx",
+   "line": 430,
+   "match": "font-mono",
+   "message": "Monospace type. Only literal code may be monospace."
+  },
+  {
+   "level": "FAIL",
+   "id": "hairline",
+   "file": "frountend/src/components/AgentPopup.tsx",
+   "line": 455,
+   "match": "border-t",
+   "message": "Thin rule / divider line. Separate with space, tone or scale; lines belong to real tables and form fields."
+  },
+  {
+   "level": "FAIL",
+   "id": "mono",
+   "file": "frountend/src/components/AgentPopup.tsx",
+   "line": 456,
+   "match": "font-mono",
+   "message": "Monospace type. Only literal code may be monospace."
+  },
+  {
+   "level": "FAIL",
+   "id": "mono",
+   "file": "frountend/src/components/AgentPopup.tsx",
+   "line": 485,
+   "match": "font-mono",
+   "message": "Monospace type. Only literal code may be monospace."
+  }
+ ]
+}

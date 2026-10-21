@@ -1,135 +1,97 @@
-/**
- * Synthesizes organic, realistic bird calls procedurally via the browser Web Audio API.
- * No external MP3 downloads required — pure mathematical acoustics.
- */
+import { assetUrl, getSpeciesAudio, getCommonsAudio } from "./api";
 
-class BirdAudioSynthesizer {
-  private ctx: AudioContext | null = null;
+interface Recording { url: string; credit: string; pageUrl: string; licenseUrl: string }
+interface Playback {
+  species: string;
+  phase: "idle" | "loading" | "playing" | "error";
+  message?: string;
+  recording?: Recording;
+}
 
-  private getContext(): AudioContext {
-    if (!this.ctx) {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      this.ctx = new AudioCtx();
+/** One player for the site. Changing the request cancels all older loads. */
+class BirdAudioPlayer {
+  private audio: HTMLAudioElement | null = null;
+  private version = 0;
+  private cancelLoad?: () => void;
+  private snapshot: Playback = { species: "", phase: "idle" };
+  private listeners = new Set<() => void>();
+  subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
+  getSnapshot = () => this.snapshot;
+  private update(state: Playback) { this.snapshot = state; this.listeners.forEach((listener) => listener()); }
+
+  stop = () => {
+    this.version += 1;
+    this.cancelLoad?.();
+    this.cancelLoad = undefined;
+    if (this.audio) {
+      this.audio.pause();
+      this.audio.removeAttribute("src");
+      this.audio.load();
+      this.audio = null;
     }
-    if (this.ctx.state === "suspended") {
-      this.ctx.resume();
+    this.update({ species: "", phase: "idle" });
+  };
+
+  private async start(recording: Recording, species: string, version: number) {
+    if (version !== this.version) return false;
+    const audio = new Audio(recording.url);
+    audio.volume = .85;
+    this.audio = audio;
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const timer = window.setTimeout(() => reject(new Error("Recording timed out")), 12000);
+        const cancel = () => reject(new Error("Cancelled"));
+        this.cancelLoad = cancel;
+        audio.play().then(resolve, reject).finally(() => {
+          clearTimeout(timer);
+          if (this.cancelLoad === cancel) this.cancelLoad = undefined;
+        });
+      });
+      if (version !== this.version) { audio.pause(); return false; }
+      this.update({ species, phase: "playing", recording });
+      audio.onended = () => { if (version === this.version) this.stop(); };
+      audio.onerror = () => {
+        if (version === this.version) {
+          this.stop();
+          this.update({ species, phase: "error", message: "The recording stopped loading. Please try again." });
+        }
+      };
+      return true;
+    } catch {
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+      return false;
     }
-    return this.ctx;
   }
 
-  /**
-   * Play a procedural birdsong based on species character
-   */
-  public play(birdId: string) {
+  async playRecording(scientificName: string): Promise<boolean> {
+    this.stop();
+    const version = this.version;
+    this.update({ species: scientificName, phase: "loading" });
     try {
-      const ctx = this.getContext();
-      const now = ctx.currentTime;
-
-      if (birdId.includes("hoopoe")) {
-        // Hoopoe: resonant, hollow triple coo 'oop-oop-oop' (~720Hz)
-        for (let i = 0; i < 3; i++) {
-          const t = now + i * 0.28;
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-
-          osc.type = "sine";
-          osc.frequency.setValueAtTime(700, t);
-          osc.frequency.exponentialRampToValueAtTime(740, t + 0.08);
-          osc.frequency.exponentialRampToValueAtTime(680, t + 0.18);
-
-          gain.gain.setValueAtTime(0.001, t);
-          gain.gain.linearRampToValueAtTime(0.22, t + 0.05);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.19);
-
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-
-          osc.start(t);
-          osc.stop(t + 0.2);
-        }
-      } else if (birdId.includes("kingfisher") || birdId.includes("buyung")) {
-        // Kingfisher: sharp, rapid piercing river whistle
-        for (let i = 0; i < 2; i++) {
-          const t = now + i * 0.16;
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-
-          osc.type = "triangle";
-          osc.frequency.setValueAtTime(3200, t);
-          osc.frequency.exponentialRampToValueAtTime(4600, t + 0.04);
-          osc.frequency.exponentialRampToValueAtTime(3800, t + 0.12);
-
-          gain.gain.setValueAtTime(0.001, t);
-          gain.gain.linearRampToValueAtTime(0.18, t + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.13);
-
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-
-          osc.start(t);
-          osc.stop(t + 0.14);
-        }
-      } else if (birdId.includes("owl")) {
-        // Owl: deep, velvety double hoot (~420Hz)
-        [0, 0.45].forEach((offset, idx) => {
-          const t = now + offset;
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-
-          osc.type = "sine";
-          osc.frequency.setValueAtTime(idx === 0 ? 440 : 380, t);
-          osc.frequency.linearRampToValueAtTime(360, t + 0.35);
-
-          gain.gain.setValueAtTime(0.001, t);
-          gain.gain.linearRampToValueAtTime(0.28, t + 0.1);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.36);
-
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-
-          osc.start(t);
-          osc.stop(t + 0.38);
-        });
-      } else {
-        // Robin / Songbird: joyful liquid musical warble with FM vibrato
-        const baseFreq = 2800 + Math.random() * 400;
-        const notes = [0, 4, 7, 11, 14, 12];
-
-        notes.forEach((semitones, idx) => {
-          const t = now + idx * 0.09;
-          const osc = ctx.createOscillator();
-          const vibrato = ctx.createOscillator();
-          const vibratoGain = ctx.createGain();
-          const gain = ctx.createGain();
-
-          // FM vibrato
-          vibrato.frequency.value = 18;
-          vibratoGain.gain.value = 70;
-          vibrato.connect(vibratoGain);
-          vibratoGain.connect(osc.frequency);
-
-          const freq = baseFreq * Math.pow(2, semitones / 12);
-          osc.type = "sine";
-          osc.frequency.setValueAtTime(freq, t);
-          osc.frequency.linearRampToValueAtTime(freq * 1.05, t + 0.08);
-
-          gain.gain.setValueAtTime(0.001, t);
-          gain.gain.linearRampToValueAtTime(0.15, t + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
-
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-
-          vibrato.start(t);
-          vibrato.stop(t + 0.09);
-          osc.start(t);
-          osc.stop(t + 0.09);
-        });
+      const list = await getSpeciesAudio(scientificName, 3);
+      for (const row of list.recordings.slice(0, 2)) {
+        if (version !== this.version) return false;
+        if (await this.start({
+          url: assetUrl(row.stream_url),
+          credit: `${row.recordist ?? "Recordist"} · Xeno-canto XC${row.xc_id}`,
+          pageUrl: row.page_url ?? `https://xeno-canto.org/${row.xc_id}`,
+          licenseUrl: row.license ?? row.page_url ?? "https://xeno-canto.org/",
+        }, scientificName, version)) return true;
       }
-    } catch (err) {
-      console.warn("Web Audio synthesis unavailable:", err);
-    }
+    } catch { /* Try the independent archive below. */ }
+    if (version !== this.version) return false;
+    try {
+      const list = await getCommonsAudio(scientificName);
+      for (const row of list.recordings.slice(0, 2)) {
+        if (version !== this.version) return false;
+        if (await this.start({ url: row.url, credit: `${row.recordist} · Wikimedia Commons`, pageUrl: row.page_url, licenseUrl: row.license_url }, scientificName, version)) return true;
+      }
+    } catch { /* Unavailable audio is reported; never replaced by a made-up call. */ }
+    if (version === this.version) this.update({ species: scientificName, phase: "error", message: "No playable recording is available right now. The sound archives may be temporarily unavailable." });
+    return false;
   }
 }
 
-export const birdAudio = new BirdAudioSynthesizer();
+export const birdAudio = new BirdAudioPlayer();

@@ -69,21 +69,21 @@ async def _fetch(db: AsyncSession, where: str, params: dict, resolution: str) ->
     if bucket is None:
         # Daily is the stored grain — no grouping, so nothing is collapsed.
         sql = f"""
-            SELECT individual_local_identifier AS ident, timestamp AS ts,
+            SELECT individual_id, individual_local_identifier AS ident, timestamp AS ts,
                    latitude, longitude, source, study_id
               FROM movement_tracks
              WHERE {where} AND {_POINT_FILTER}
-             ORDER BY ident, ts
+             ORDER BY individual_id, ts
         """
     else:
         sql = f"""
-            SELECT individual_local_identifier AS ident,
+            SELECT individual_id, individual_local_identifier AS ident,
                    MIN(timestamp) AS ts,
                    latitude, longitude, source, study_id
               FROM movement_tracks
              WHERE {where} AND {_POINT_FILTER}
-             GROUP BY ident, {bucket}
-             ORDER BY ident, ts
+             GROUP BY individual_id, {bucket}
+             ORDER BY individual_id, ts
         """
     return (await db.execute(text(sql), params)).mappings().all()
 
@@ -92,11 +92,13 @@ def _group(rows) -> list[dict[str, Any]]:
     """Rows -> one feature per individual, preserving order."""
     by_individual: OrderedDict[str, dict[str, Any]] = OrderedDict()
     for row in rows:
-        key = row["ident"] or "unknown"
+        key = row["individual_id"]
         entry = by_individual.setdefault(
             key,
             {
                 "coordinates": [],
+                "timestamps": [],
+                "individual": row["ident"] or "unknown",
                 "start": row["ts"],
                 "end": row["ts"],
                 "source": row["source"],
@@ -104,12 +106,15 @@ def _group(rows) -> list[dict[str, Any]]:
             },
         )
         entry["coordinates"].append([row["longitude"], row["latitude"]])
+        entry["timestamps"].append(row["ts"])
         entry["end"] = row["ts"]
     return [
         _line(
             entry["coordinates"],
             {
-                "individual": key,
+                "individual": entry["individual"],
+                "individual_id": key,
+                "timestamps": entry["timestamps"],
                 "points": len(entry["coordinates"]),
                 "start": entry["start"],
                 "end": entry["end"],
@@ -145,14 +150,16 @@ async def species_tracks(
     scientific_name: str,
     resolution: str = "monthly",
     max_points: int = MAX_POINTS,
+    aliases: list[str] | None = None,
 ) -> tuple[dict[str, Any], int, int, str, str]:
     """Every tagged individual of a species, one polyline each.
 
     Returns (geojson, points, individuals, requested_resolution, used_resolution).
     """
     requested = resolution if resolution in BUCKETS else "monthly"
-    where = "canonical_name = :name"
-    params = {"name": scientific_name}
+    names = aliases or [scientific_name]
+    params = {f"name_{index}": name for index, name in enumerate(names)}
+    where = "canonical_name IN (" + ", ".join(f":{key}" for key in params) + ")"
 
     used = requested
     for candidate in ORDER[ORDER.index(requested):]:
@@ -165,11 +172,11 @@ async def species_tracks(
     return _collection(features), len(rows), len(features), requested, used
 
 
-async def studies_for_species(db: AsyncSession, scientific_name: str) -> list[MovebankStudy]:
+async def studies_for_species(db: AsyncSession, scientific_name: str, aliases: list[str] | None = None) -> list[MovebankStudy]:
     """The studies behind a species' tracks — needed for required attribution."""
     study_ids = (await db.execute(
         select(MovementTrack.study_id)
-        .where(MovementTrack.canonical_name == scientific_name)
+        .where(MovementTrack.canonical_name.in_(aliases or [scientific_name]))
         .where(MovementTrack.study_id.isnot(None))
         .distinct()
     )).scalars().all()

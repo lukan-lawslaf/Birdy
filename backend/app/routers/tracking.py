@@ -29,6 +29,22 @@ router = APIRouter(prefix="/tracking", tags=["tracking"])
 # Computed on first request, then held: the extent of the tracks cannot change
 # until the ingest pipeline runs again.
 _BOUNDS: dict | None = None
+_TAXON_ALIASES: dict[str, str] | None = None
+
+
+async def _taxon_aliases(db) -> dict[str, str]:
+    """Unify common/scientific spellings without modifying source records."""
+    global _TAXON_ALIASES
+    if _TAXON_ALIASES is None:
+        taxa = (await db.execute(select(distinct(MovementIndividual.animal_taxon)))).scalars().all()
+        aliases = {}
+        for name in taxa:
+            if not name:
+                continue
+            resolved = await resolve.resolve_species(db, name)
+            aliases[name] = resolved.scientific_name if resolved else name
+        _TAXON_ALIASES = aliases
+    return _TAXON_ALIASES
 
 
 async def _resolve_tracked(db, name: str) -> str:
@@ -38,7 +54,11 @@ async def _resolve_tracked(db, name: str) -> str:
     the `canonical_name` stored on the tracks. Folding the handful of taxa we
     actually track catches those.
     """
+    aliases = await _taxon_aliases(db)
     resolved = await resolve.resolve_species(db, name)
+    canonical = resolved.scientific_name if resolved else aliases.get(name, name)
+    if canonical in aliases.values():
+        return canonical
     if resolved is not None:
         exact = (
             await db.execute(
@@ -194,6 +214,30 @@ async def tracked_species(db: DbDep):
         ).all()
     }
 
+    aliases = await _taxon_aliases(db)
+    merged_spans = {}
+    merged_totals = {}
+    for raw, (points, first_ts, last_ts) in spans.items():
+        canonical = aliases.get(raw, raw)
+        previous = merged_spans.get(canonical)
+        merged_spans[canonical] = (
+            points + (previous[0] if previous else 0),
+            min(value for value in [first_ts, previous[1] if previous else None] if value),
+            max(value for value in [last_ts, previous[2] if previous else None] if value),
+        )
+    for raw, (individuals, studies, sources) in totals.items():
+        canonical = aliases.get(raw, raw)
+        previous = merged_totals.get(canonical, (0, 0, ""))
+        merged_totals[canonical] = (previous[0] + individuals, previous[1] + studies, ",".join(filter(None, [previous[2], sources])))
+    spans = merged_spans
+    totals = merged_totals
+    study_sets = {}
+    for raw, study_id in (await db.execute(
+        select(MovementIndividual.animal_taxon, MovementIndividual.study_id)
+        .where(MovementIndividual.study_id.isnot(None)).distinct()
+    )).all():
+        study_sets.setdefault(aliases.get(raw, raw), set()).add(study_id)
+    totals = {name: (value[0], len(study_sets.get(name, set())), value[2]) for name, value in totals.items()}
     names = sorted(spans)
     common = {}
     if names:
@@ -237,13 +281,15 @@ async def species_tracks(
     which may be coarser than requested if the point count would be unwieldy.
     """
     scientific = await _resolve_tracked(db, name)
+    taxon_aliases = await _taxon_aliases(db)
+    names = [raw for raw, canonical in taxon_aliases.items() if canonical == scientific]
     geojson, points, individuals, requested, used = await tracks.species_tracks(
-        db, scientific, resolution
+        db, scientific, resolution, aliases=names
     )
     if not points:
         raise not_found("tracks for species", name)
 
-    studies_rows = await tracks.studies_for_species(db, scientific)
+    studies_rows = await tracks.studies_for_species(db, scientific, aliases=names)
     return TrackResponse(
         species=scientific,
         resolution=used,

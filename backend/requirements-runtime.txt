@@ -1,0 +1,12 @@
+# Serving only. The offline ingest pipeline additionally needs requirements.txt.
+sqlalchemy==2.0.51
+pydantic==2.12.2
+pydantic-settings==2.14.1
+requests==2.34.2
+pillow==12.3.0
+fastapi==0.136.0
+uvicorn[standard]==0.44.0
+aiosqlite==0.22.1
+python-multipart==0.0.20
+onnxruntime==1.27.0
+numpy==2.2.6

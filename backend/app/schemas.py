@@ -55,10 +55,22 @@ class SpeciesListItem(BaseModel):
     family: str | None = None
     order_name: str | None = None
     iucn_category: str | None = None
+    iucn_label: str | None = None
     image_url: str | None = None
     image_thumbnail_url: str | None = None
     known_to_classifier: bool = False
     label_index: int | None = None
+
+    # Key ecological & morphological telemetry from AVONET & BirdLife
+    mass_g: float | None = None
+    wing_length_mm: float | None = None
+    habitat: str | None = None
+    trophic_niche: str | None = None
+    primary_lifestyle: str | None = None
+    migration_label: str | None = None
+    has_tracking: bool = False
+    tracking_points: int = 0
+    has_audio: bool = False
 
 
 class TaxonomyOut(BaseModel):
@@ -151,6 +163,21 @@ class ImageOut(BaseModel):
     width: int | None = None
     height: int | None = None
     stored_bytes: bool = False
+
+
+class CommonsAudioRecording(BaseModel):
+    title: str
+    url: str
+    page_url: str
+    recordist: str
+    license: str
+    license_url: str
+    size: int
+
+
+class CommonsAudioList(BaseModel):
+    scientific_name: str
+    recordings: list[CommonsAudioRecording]
 
 
 class SpeciesAudioOut(BaseModel):
@@ -603,6 +630,149 @@ class ServiceInfo(BaseModel):
     service: str
     docs: str
     domains: list[str]
+
+
+# ---------------------------------------------------------------- agent
+
+
+class StatCard(BaseModel):
+    """One stat tile, ready to render. `tone` is a colour hint, not data."""
+
+    label: str
+    value: str
+    hint: str | None = None
+    tone: Literal["neutral", "good", "warn", "bad"] = "neutral"
+
+
+class FactSection(BaseModel):
+    title: str
+    body: str
+
+
+class AgentCandidate(BaseModel):
+    """One of the classifier's ranked guesses."""
+
+    label_index: int
+    common_name: str
+    scientific_name: str | None = None
+    confidence: float
+    profile_url: str | None = None
+    image_url: str | None = None
+
+
+class VisionVerdict(BaseModel):
+    """The vision model's second opinion, when one was asked for."""
+
+    ran: bool = Field(description="False when the classifier was confident enough")
+    agrees: bool | None = Field(None, description="Did it back one of the candidates")
+    is_bird: bool | None = Field(None, description="False when it sees no bird at all")
+    suggested: str | None = Field(None, description="Its own identification, if it disagreed")
+    note: str | None = Field(None, description="One sentence of its reasoning")
+    model: str | None = None
+    elapsed_ms: float | None = None
+    error: str | None = Field(None, description="Set when the cross-check itself failed")
+
+
+class SpeciesMedia(BaseModel):
+    image_url: str | None = None
+    thumbnail_url: str | None = None
+    image_attribution: str | None = None
+    image_license: str | None = None
+    audio_stream_url: str | None = Field(
+        None, description="Plays a cached Xeno-canto recording through this API"
+    )
+    audio_sonogram_url: str | None = None
+    audio_note: str | None = Field(None, description="Sound type, country and length")
+    audio_count: int = 0
+
+
+class SpeciesFacts(BaseModel):
+    """The database's answer for one species, display-ready."""
+
+    scientific_name: str
+    common_name: str | None = None
+    family: str | None = None
+    order_name: str | None = None
+    species_code: str | None = None
+    matched_on: str | None = Field(None, description="Which name set the match came from")
+
+    iucn_category: str | None = None
+    iucn_label: str | None = None
+    threatened: bool = False
+    population_trend: str | None = None
+
+    mass_g: float | None = None
+    wing_length_mm: float | None = None
+    habitat: str | None = None
+    trophic_niche: str | None = None
+    migration_label: str | None = None
+    primary_lifestyle: str | None = None
+    range_size_km2: float | None = None
+
+    peak_month: str | None = None
+    top_countries: str | None = None
+    gbif_records: int | None = None
+    ebird_observations: int = 0
+    tracking_points: int = 0
+
+    cards: list[StatCard] = []
+    sections: list[FactSection] = []
+    media: SpeciesMedia = SpeciesMedia()
+    links: dict[str, str] = {}
+    available: dict[str, bool] = Field(
+        default_factory=dict, description="Which data sources had a row for this species"
+    )
+
+
+class IdentifyAgentResponse(BaseModel):
+    """What the agent returns for one uploaded photo."""
+
+    common_name: str | None = None
+    scientific_name: str | None = None
+    confidence: float = Field(description="The classifier's top-1 probability")
+    uncertain: bool = Field(description="True when the answer deserves a caveat in the UI")
+    is_bird: bool = Field(True, description="False only when the vision model saw no bird")
+    decided_by: Literal["classifier", "classifier+vision"] = "classifier"
+
+    summary: str | None = Field(None, description="The paragraph to show the user")
+    summary_source: Literal["model", "template", "none"] = "none"
+    summary_model: str | None = None
+
+    facts: SpeciesFacts | None = None
+    candidates: list[AgentCandidate] = []
+    vision: VisionVerdict
+    warnings: list[str] = Field(
+        default_factory=list, description="Caveats worth showing the user verbatim"
+    )
+    classifier_model: str | None = None
+    timings_ms: dict[str, float] = {}
+
+
+class AgentAskResponse(BaseModel):
+    """A grounded answer to one question about one species."""
+
+    scientific_name: str
+    common_name: str | None = None
+    question: str
+    answer: str
+    source: Literal["model", "template"] = "model"
+    model: str | None = None
+    facts: SpeciesFacts
+
+
+class AgentStatus(BaseModel):
+    """What the agent can do right now, without making an API call."""
+
+    enabled: bool = Field(description="Is any text model reachable")
+    classifier_loaded: bool
+    classifier_model: str | None = None
+    text_models: list[str] = Field(description="The fallback chain, in order")
+    vision_model: str | None = None
+    vision_enabled: bool
+    vision_threshold: float = Field(description="Top-1 confidence below which vision is consulted")
+    google_key: bool
+    groq_key: bool
+    summary_fallback: str = "template"
 
 
 PhylogenyNode.model_rebuild()
