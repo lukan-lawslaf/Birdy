@@ -1,7 +1,71 @@
 # Birdpedia hosting
 
-Checked against the current project and provider documentation on 21 October 2026.
-No cloud resources have been created or deployed.
+Deployed on 22 October 2026 (India time).
+
+## Live deployment
+
+**Public website: https://birdy-theta-jet.vercel.app**
+
+Visitors open only this link. Vercel forwards `/api/*` to the Python backend;
+the frontend uses `/api` without exposing backend credentials.
+
+| Component | Location | Plan |
+| --- | --- | --- |
+| Frontend | Vercel `birdy`, workspace `nakulf2007-2371s-projects` | Hobby |
+| API and classifier | Render `birdy-api`, Birdy project / Production in MyPoke | Free |
+| Database snapshot | Supabase `Birdy`, organization `idk`, Mumbai | Free |
+
+The API is `https://birdy-api.onrender.com`. It restores the existing SQLite
+database during its build, and serves it alongside the checked-in ONNX model.
+Supabase provides private snapshot storage; the SQL query layer remains SQLite.
+The compressed snapshot is 72,763,586 bytes, split into two files below the
+50 MB free Storage upload limit. The private `deployment-snapshot` function
+requires both JWT verification and a separate server-side token, then issues
+short-lived read URLs. Its token digest is checked into the function source;
+the actual token stays in Render environment variables. The temporary upload
+function has been disabled. No anonymous write policies were created.
+
+Render stores `BIRDS_DB_URL`, `BIRDS_DB_SHA256`, `BIRDS_SNAPSHOT_ANON_KEY`,
+`BIRDS_SNAPSHOT_TOKEN`, `GOOGLE_KEY` and `XENO_CANTO_KEY` server-side.
+Do not copy them into frontend configuration or Git. `.deployment/` and local
+environment files are ignored. The database SHA-256 is
+`abe7c4e1756acc1be3dc5296ce70645bb2b5bde0ff466e6724ef055c6a251fe9`.
+
+The Render service uses a smaller SQLite cache/pool and a single-threaded ONNX
+session for its 512 MB free instance. After inactivity it can sleep; website API
+requests wake it automatically. Frontend reads retry temporary gateway failures.
+No separate backend browser tab or local server is required.
+
+The Vercel project was deployed with the official CLI because its GitHub app
+was not installed for this repository. Source is saved in GitHub, but automatic
+Vercel deployment on a Git push is not yet connected. For updates, run
+`vercel deploy --prod --scope team_8JPDsYjLcQR9CsjKXcfOTraV` from the repository
+root after building locally. The Vercel project root directory is `frountend`.
+`.vercelignore` excludes backend data and local credentials from frontend uploads.
+
+Vercel CLI 65.0.0 is installed and signed in. The existing Vercel plugin remains
+installed, and the shared `https://mcp.vercel.com` endpoint is configured in the
+Codex user configuration with OAuth completed. Newly configured MCP tools may
+require a client refresh; the older plugin connection still denied team access,
+so deployment used the authenticated CLI fallback.
+
+## Verification
+
+The public homepage returned 200 without sign-in. `/api/health` confirmed the
+database and classifier were loaded. All 58 existing API smoke checks passed
+through the public Vercel URL. The production frontend build and 10 regression
+tests passed. The browser loaded the 32-species Atlas. Private snapshot restore,
+checksum validation, unauthorized-access rejection and upload-helper shutdown
+were verified; Supabase security advisors returned no findings.
+
+The live photo upload test was not completed because browser upload permission
+was declined. The user then confirmed the website was working and requested no
+further checks. Local photo classification passed with the hosted memory settings.
+
+## Original deployment reference
+
+The following alternatives and setup notes were researched before deployment.
+The live configuration above takes precedence.
 
 ## Practical free demo: Vercel frontend + Render API
 

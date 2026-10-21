@@ -1,8 +1,9 @@
 services:
   - type: web
-    name: birdpedia-api
+    name: birdy-api
     runtime: python
     plan: free
+    region: singapore
     buildCommand: pip install -r backend/requirements-runtime.txt && python backend/start.py --restore-only
     startCommand: python backend/start.py
     healthCheckPath: /health
@@ -30,7 +31,7 @@ services:
       - key: CLASSIFIER_LOW_MEMORY
         value: "true"
       - key: CORS_ORIGINS
-        sync: false
+        value: https://birdy-theta-jet.vercel.app
       - key: XENO_CANTO_KEY
         sync: false
       - key: GOOGLE_KEY

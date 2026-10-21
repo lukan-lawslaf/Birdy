@@ -1,5 +1,9 @@
 # Birdpedia
 
+Live website: **[birdy-theta-jet.vercel.app](https://birdy-theta-jet.vercel.app)**.
+The frontend and API work through this one link; the free backend can take time
+to wake after inactivity. See [DEPLOYMENT.md](DEPLOYMENT.md) for hosting details.
+
 A React bird encyclopedia with photo identification, recorded calls, migration
 maps, phylogeny and a 32-species 3D atlas. FastAPI serves the local SQLite research
 database and the quantized ONNX classifier.

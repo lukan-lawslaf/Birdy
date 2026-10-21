@@ -9,7 +9,7 @@
 
 const rawBase = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
 
-/** Dev serves through the Vite proxy at /api; production sets VITE_API_URL. */
+/** Both Vite and Vercel forward /api to the Python service. */
 export const API_BASE = (rawBase || "/api").replace(/\/+$/, "");
 
 /** Turn an API-relative path into something an <img> or <audio> can load. */
@@ -48,15 +48,20 @@ function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(`${API_BASE}${path}`, { ...init, signal: init?.signal ?? AbortSignal.timeout(90000) });
-  } catch {
-    throw new ApiError(
-      "Can't reach the Bird Atlas API. Is the backend running on port 8000?",
-      0
-    );
+  let response: Response | undefined;
+  const attempts = !init?.method || init.method === "GET" ? 2 : 1;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      response = await fetch(`${API_BASE}${path}`, { ...init, signal: init?.signal ?? AbortSignal.timeout(120000) });
+      if (![502, 503, 504].includes(response.status) || attempt === attempts - 1) break;
+    } catch {
+      if (init?.signal?.aborted || attempt === attempts - 1) {
+        throw new ApiError("The bird data service is waking up or temporarily unavailable. Please try again shortly.", 0);
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
   }
+  if (!response) throw new ApiError("The bird data service is temporarily unavailable.", 0);
 
   if (!response.ok) {
     let detail = `${response.status} ${response.statusText}`;
